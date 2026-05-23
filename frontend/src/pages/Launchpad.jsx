@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import {
   Scale, Fingerprint, Wand2, Film, Lock,
 } from 'lucide-react';
@@ -20,16 +20,15 @@ function DubThumb({ jobId, fallback }) {
   );
 }
 
-// Squiggle was replaced by the .lp-hero__sweep span — a pure-CSS animated
-// accent line under the H1. Less static, no SVG dependency.
+// Squiggle đã được thay thế bằng span .lp-hero__sweep — một đường nhấn hoạt họa CSS thuần
+// dưới thẻ H1. Ít tĩnh hơn, không phụ thuộc vào SVG.
 
 /**
- * ActionCard — the three big Launchpad tiles. Reads its accent from a
- * single `--card-hue` var so the CSS derives background / border / glow /
- * spotlight from one hex color. Cursor-tracking spotlight: pointer events
- * set --mx/--my so `.lp-glow-layer` can paint a radial gradient at the
- * cursor position. Eternal breath ring lives on `.lp-glow-layer::after`
- * and pulses forever whether the card is hovered or not.
+ * ActionCard — ba thẻ lớn trên Launchpad. Đọc accent từ một biến `--card-hue` duy nhất
+ * để CSS trích xuất background / border / glow / spotlight từ một mã màu hex.
+ * Spotlight theo dấu con trỏ: các sự kiện pointer đặt --mx/--my để `.lp-glow-layer`
+ * có thể vẽ một dải gradient tròn tại vị trí con trỏ. Vòng hơi thở vĩnh cửu nằm trên
+ * `.lp-glow-layer::after` và đập mãi mãi dù thẻ có được hover hay không.
  */
 function ActionCard({ hue, Icon, title, accent, count, onClick, children }) {
   const handleMouseMove = (e) => {
@@ -69,9 +68,8 @@ export default function Launchpad({
 
   return (
     <div className="launchpad">
-      {/* Ambient backdrop — chrome-accent aurora that drifts forever. Lives
-          behind everything at z=0, contributes the "eternal glow" the user
-          asked for without painting any one surface. */}
+      {/* Nền ambient — aurora chrome-accent trôi dạt mãi mãi. Nằm sau mọi thứ ở z=0,
+          đóng góp vào "eternal glow" mà người dùng yêu cầu mà không cần vẽ lên bất kỳ bề mặt nào. */}
       <div className="lp-aurora" aria-hidden="true">
         <span className="lp-aurora__blob lp-aurora__blob--pink" />
         <span className="lp-aurora__blob lp-aurora__blob--green" />
@@ -89,9 +87,9 @@ export default function Launchpad({
                     key={i}
                     className="lp-wave-bar"
                     style={{
-                      // Per-bar animation offsets + distinct durations give
-                      // a breathing, never-identical pulse instead of the
-                      // rigid uniform bounce the old version had.
+                      // Độ lệch hoạt ảnh trên mỗi thanh + thời lượng riêng biệt tạo ra
+                      // một nhịp thở không bao giờ trùng lặp thay vì sự bật nảy cứng nhắc
+                      // như phiên bản cũ.
                       '--bar-h': `${h}px`,
                       '--bar-delay': `${i * 0.17}s`,
                       '--bar-dur':   `${1.8 + (i % 3) * 0.4}s`,
@@ -103,23 +101,25 @@ export default function Launchpad({
             </div>
             <h1 className="lp-hero__title">
               <span className="lp-hero__halo" aria-hidden="true" />
-              Make voices that <em>sound like you</em>.
+              <Trans i18nKey="launchpad.hero_title">
+                Tạo ra những giọng nói <em>giống hệt bạn</em>.
+              </Trans>
               <span className="lp-hero__sweep" aria-hidden="true" />
             </h1>
             <p>
-              Clone a voice, design a new one, or dub a video into any of <span className="lp-pill">{t('common.languages_count')}</span>.
-              Built for creators who care how it sounds.
+              <Trans i18nKey="launchpad.hero_desc" values={{ count: t('common.languages_count') }}>
+                Clone một giọng nói, thiết kế giọng mới, hoặc lồng tiếng video sang bất kỳ ngôn ngữ nào trong số <span className="lp-pill">{{count: t('common.languages_count')}}</span>. Dành cho những nhà sáng tạo chú trọng âm thanh.
+              </Trans>
             </p>
           </div>
-          {/* A/B Compare is a side-by-side voice diff — only useful when the
-              user has at least two profiles to actually compare. On a fresh
-              install (or for first-time users) the button is just chrome
-              noise that opens an empty modal, so we gate it. */}
+          {/* A/B Compare là so sánh giọng nói song song — chỉ hữu ích khi người dùng
+              có ít nhất hai hồ sơ để so sánh. Trong một bản cài đặt mới (hoặc cho người dùng lần đầu)
+              nút này chỉ là nhiễu giao diện mở ra một modal trống, vì vậy chúng ta giới hạn nó. */}
           {profiles.length >= 2 && (
             <button
               onClick={() => setIsCompareModalOpen(true)}
               className="lp-ab-compare"
-              title="Try two voices side by side"
+              title={t('launchpad.ab_compare_hint')}
             >
               <Scale size={12} /> {t('launchpad.ab_compare')}
             </button>
@@ -128,7 +128,7 @@ export default function Launchpad({
 
       </div>
 
-      {/* Action Cards */}
+      {/* Các thẻ hành động */}
       <div className="lp-actions">
         <ActionCard hue="#d3869b" Icon={Fingerprint} title={t('launchpad.clone_title')} accent="✨" count={cloneProfiles.length} onClick={() => setMode('clone')}>
           {t('launchpad.clone_desc')}
@@ -150,19 +150,19 @@ export default function Launchpad({
             className="lp-demo-callout__btn"
             onClick={() => { setMode('clone'); handleSelectProfile(demoProfile); }}
           >
-            Try it
+            {t('common.try_it')}
           </button>
         </div>
       )}
 
-      {/* Recent Projects */}
+      {/* Các dự án gần đây */}
       {(profiles.length > 0 || studioProjects.length > 0) && (
         <div className="lp-section">
           <div className="lp-section__grid">
-            {/* Cloned voices */}
+            {/* Giọng đã Clone */}
             {cloneProfiles.length > 0 && (
               <div>
-                <div className="lp-section-title"><Fingerprint size={12} color="#d3869b" /> Cloned Voices</div>
+                <div className="lp-section-title"><Fingerprint size={12} color="#d3869b" /> {t('launchpad.cloned_voices')}</div>
                 <div className="lp-col">
                   {cloneProfiles.map(p => (
                     <div key={p.id} className="lp-project-card">
@@ -171,17 +171,17 @@ export default function Launchpad({
                         <div className="proj-name">{p.name}</div>
                         <div className="proj-meta">{p.ref_audio_path}</div>
                       </div>
-                      <button className="proj-action" onClick={() => { setMode('clone'); handleSelectProfile(p); }}>Open</button>
+                      <button className="proj-action" onClick={() => { setMode('clone'); handleSelectProfile(p); }}>{t('common.open')}</button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Designed voices */}
+            {/* Giọng đã Thiết kế */}
             {designProfiles.length > 0 && (
               <div>
-                <div className="lp-section-title"><Wand2 size={12} color="#8ec07c" /> Designed Voices</div>
+                <div className="lp-section-title"><Wand2 size={12} color="#8ec07c" /> {t('launchpad.designed_voices')}</div>
                 <div className="lp-col">
                   {designProfiles.map(p => (
                     <div key={p.id} className="lp-project-card">
@@ -192,18 +192,18 @@ export default function Launchpad({
                         <div className="proj-name">{p.name}</div>
                         <div className="proj-meta lp-proj-meta--italic">{p.instruct}</div>
                       </div>
-                      {p.is_locked && <span className="lp-locked-badge">LOCKED</span>}
-                      <button className="proj-action" onClick={() => { setMode('design'); handleSelectProfile(p); }}>Open</button>
+                      {p.is_locked && <span className="lp-locked-badge">{t('launchpad.locked')}</span>}
+                      <button className="proj-action" onClick={() => { setMode('design'); handleSelectProfile(p); }}>{t('common.open')}</button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Dubbing projects */}
+            {/* Dự án Lồng tiếng */}
             {studioProjects.length > 0 && (
               <div>
-                <div className="lp-section-title"><Film size={12} color="#fe8019" /> Dubbing Projects</div>
+                <div className="lp-section-title"><Film size={12} color="#fe8019" /> {t('launchpad.dubbing_projects')}</div>
                 <div className="lp-col">
                   {studioProjects.map(proj => (
                     <div key={proj.id} className="lp-project-card">
@@ -215,9 +215,9 @@ export default function Launchpad({
                       </div>
                       <div className="proj-info">
                         <div className="proj-name">{proj.name}</div>
-                        <div className="proj-meta">{proj.video_path || 'Audio Only'}</div>
+                        <div className="proj-meta">{proj.video_path || t('common.audio_only')}</div>
                       </div>
-                      <button className="proj-action" onClick={() => { setMode('dub'); loadProject(proj.id); }}>Open</button>
+                      <button className="proj-action" onClick={() => { setMode('dub'); loadProject(proj.id); }}>{t('common.open')}</button>
                     </div>
                   ))}
                 </div>
@@ -227,7 +227,7 @@ export default function Launchpad({
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Trạng thái trống */}
       {profiles.length === 0 && studioProjects.length === 0 && (
         <div className="lp-empty">
           <div className="lp-empty__inner">
@@ -246,15 +246,11 @@ export default function Launchpad({
               {t('launchpad.empty_hint')}
             </p>
           </div>
-          {/* No `showWhenAllPass` — let the component self-hide when every
-              check is pass-or-warn. Surfacing "everything is fine" on the
-              welcome screen is noise; only show when there's an actual
-              issue to address. */}
           <ReadinessChecklist />
         </div>
       )}
 
-      {/* Show checklist alongside existing projects too, but only when issues exist */}
+      {/* Hiển thị checklist cùng với các dự án hiện có, nhưng chỉ khi có vấn đề tồn tại */}
       {(profiles.length > 0 || studioProjects.length > 0) && (
         <ReadinessChecklist compact />
       )}

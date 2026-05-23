@@ -3,37 +3,25 @@ import {
   Globe, Fingerprint, Wand2, Film, FolderOpen, Settings2, ArrowLeftRight,
   Library, FileText, BookOpen,
 } from 'lucide-react';
-
-const ITEMS = [
-  { id: 'launchpad', label: 'Launchpad', Icon: Globe,       accent: '#f3a5b6' },
-  { id: 'clone',     label: 'Clone',     Icon: Fingerprint, accent: '#d3869b' },
-  { id: 'design',    label: 'Design',    Icon: Wand2,       accent: '#8ec07c' },
-  { id: 'dub',       label: 'Dub',       Icon: Film,        accent: '#fe8019' },
-  { id: 'stories',   label: 'Stories',   Icon: BookOpen,    accent: '#fabd2f' },
-  { id: 'gallery',   label: 'Gallery',   Icon: Library,     accent: '#b8bb26' },
-  { id: 'transcriptions', label: 'Transcripts', Icon: FileText, accent: '#d3869b' },
-  { id: 'projects',  label: 'OmniDrive',  Icon: FolderOpen,  accent: '#83a598' },
-];
-const FOOTER_ITEMS = [
-  { id: 'settings', label: 'Settings', Icon: Settings2, accent: '#fabd2f' },
-];
-
-function RailBtn({ active, Icon, label, accent, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className={`rail-btn ${active ? 'active' : ''}`}
-      style={{ '--rail-accent': accent }}
-    >
-      <Icon size={18} />
-      <span className="rail-label">{label}</span>
-    </button>
-  );
-}
+import { useTranslation } from 'react-i18next';
 
 export default function NavRail({ mode, setMode, side = 'left', onFlipSide }) {
+  const { t } = useTranslation();
+
+  const ITEMS = [
+    { id: 'launchpad', label: t('menu.launchpad'), Icon: Globe,       accent: '#f3a5b6' },
+    { id: 'clone',     label: t('sidebar.clone'),     Icon: Fingerprint, accent: '#d3869b' },
+    { id: 'design',    label: t('sidebar.design'),    Icon: Wand2,       accent: '#8ec07c' },
+    { id: 'dub',       label: t('sidebar.dub'),       Icon: Film,        accent: '#fe8019' },
+    { id: 'stories',   label: t('menu.stories', 'Stories'), Icon: BookOpen,    accent: '#fabd2f' },
+    { id: 'gallery',   label: t('menu.gallery'),      Icon: Library,     accent: '#b8bb26' },
+    { id: 'transcriptions', label: t('menu.transcriptions'), Icon: FileText, accent: '#d3869b' },
+    { id: 'projects',  label: t('menu.projects'),     Icon: FolderOpen,  accent: '#83a598' },
+  ];
+  const FOOTER_ITEMS = [
+    { id: 'settings', label: t('menu.settings'), Icon: Settings2, accent: '#fabd2f' },
+  ];
+
   return (
     <aside className={`nav-rail rail-${side}`}>
       <div className="rail-top">
@@ -47,7 +35,7 @@ export default function NavRail({ mode, setMode, side = 'left', onFlipSide }) {
         ))}
         <button
           onClick={onFlipSide}
-          title={`Move rail to the ${side === 'left' ? 'right' : 'left'}`}
+          title={t('menu.flip_rail', { side: side === 'left' ? t('common.right', 'phải') : t('common.left', 'trái') })}
           aria-label="Flip rail side"
           className="rail-btn rail-flip"
         >
@@ -55,5 +43,20 @@ export default function NavRail({ mode, setMode, side = 'left', onFlipSide }) {
         </button>
       </div>
     </aside>
+  );
+}
+
+function RailBtn({ active, Icon, label, accent, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={`rail-btn ${active ? 'active' : ''}`}
+      style={{ '--rail-accent': accent }}
+    >
+      <Icon size={18} />
+      <span className="rail-label">{label}</span>
+    </button>
   );
 }

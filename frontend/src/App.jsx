@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, Suspense, lazy } from 'react';
 import './index.css';
+import { useTranslation, Trans } from 'react-i18next';
 import { useAppStore } from './store';
 import SearchableSelect from './components/SearchableSelect';
 import DirectionDialog from './components/DirectionDialog';
 
-// Lazy-load heavy/conditional components so they don't bloat the initial bundle.
+// Lazy-load các component nặng/theo điều kiện để không làm phình bản build ban đầu.
 const AudioTrimmer = lazy(() => import('./components/AudioTrimmer'));
 const Launchpad = lazy(() => import('./pages/Launchpad'));
 const CloneDesignTab = lazy(() => import('./pages/CloneDesignTab'));
@@ -43,7 +44,10 @@ import useProfiles from './hooks/useProfiles';
 import useTTS from './hooks/useTTS';
 import useDubWorkflow from './hooks/useDubWorkflow';
 
-const LazyFallback = () => <div className="app-lazy-fallback">Loading…</div>;
+const LazyFallback = () => {
+  const { t } = useTranslation();
+  return <div className="app-lazy-fallback">{t('common.loading')}</div>;
+};
 
 import { Toaster, toast } from 'react-hot-toast';
 import {
@@ -59,20 +63,22 @@ import { exportAction, exportReveal, exportRecord } from './api/exports';
 import { isTauri, doubleClickMaximize, fileToMediaUrl, playBlobAudio, playPing } from './utils/media';
 
 function App() {
-  // First-run bootstrap: Rust spawns uv sync in a background thread and
-  // publishes progress via the `bootstrap_status` Tauri command. Hook below
-  // polls every 1 s; until `ready`, we render BootstrapSplash instead of the
-  // normal app shell, so the user sees real progress instead of a hung UI.
+  const { t } = useTranslation();
+
+  // Bootstrap lần đầu: Rust kích hoạt uv sync trong một thread nền và
+  // công bố tiến trình qua lệnh Tauri `bootstrap_status`. Hook bên dưới
+  // truy vấn mỗi 1 giây; cho đến khi `ready`, chúng ta render BootstrapSplash thay vì
+  // shell ứng dụng bình thường, để người dùng thấy tiến trình thực tế thay vì giao diện bị treo.
   const { stage: bootstrapStage, message: bootstrapMessage } = useBootstrapStage();
 
-  // UI navigation state now lives in the Zustand `uiSlice` (Phase 2.2).
-  // Mode + uiScale + sidebar-collapsed persist across reloads automatically
-  // via the store's `partialize`; active project / voice ids stay transient.
+  // Trạng thái điều hướng UI hiện nằm trong Zustand `uiSlice` (Phase 2.2).
+  // Mode + uiScale + sidebar-collapsed tự động duy trì qua các lần tải lại
+  // thông qua `partialize` của store; id dự án / giọng nói đang hoạt động vẫn mang tính tạm thời.
   const uiScale = useAppStore(s => s.uiScale);
   const setUiScale = useAppStore(s => s.setUiScale);
   const theme = useAppStore(s => s.theme);
 
-  // Hydrate the theme on mount so that persisted preference takes effect.
+  // Khởi tạo theme khi mount để tùy chọn đã lưu có hiệu lực.
   useEffect(() => {
     if (theme && theme !== 'gruvbox') {
       document.documentElement.setAttribute('data-theme', theme);
@@ -86,9 +92,7 @@ function App() {
   const showCheatsheet = useAppStore(s => s.showCheatsheet);
   const setShowCheatsheet = useAppStore(s => s.setShowCheatsheet);
 
-
-
-  // Global '?' → open cheatsheet
+  // Phím nóng toàn cục '?' → mở bảng phím tắt
   useEffect(() => {
     const h = (e) => {
       const t = e.target;
@@ -102,11 +106,7 @@ function App() {
     return () => window.removeEventListener('keydown', h);
   }, []);
 
-
-
-
-
-  // Listen for tray navigation events (Tauri desktop)
+  // Lắng nghe các sự kiện điều hướng từ khay hệ thống (Tauri desktop)
   useEffect(() => {
     let unlisten;
     (async () => {
@@ -115,10 +115,11 @@ function App() {
         unlisten = await listen('tray-navigate', (ev) => {
           if (ev.payload) setMode(ev.payload);
         });
-      } catch { /* not in Tauri */ }
+      } catch { /* không phải trong Tauri */ }
     })();
     return () => { if (unlisten) unlisten(); };
   }, [setMode]);
+
   const flipNavRailSide = useCallback(() => {
     setNavRailSide(prev => {
       const next = prev === 'left' ? 'right' : 'left';
@@ -126,7 +127,8 @@ function App() {
       return next;
     });
   }, []);
-  // Voice-profile navigation — slice owns "remember where I was" for Back.
+
+  // Điều hướng hồ sơ giọng nói — slice sở hữu "nhớ tôi đã ở đâu" cho nút Quay lại.
   const activeVoiceId = useAppStore(s => s.activeVoiceId);
   const openVoiceProfile = useAppStore(s => s.openVoiceProfile);
   const closeVoiceProfile = useAppStore(s => s.closeVoiceProfile);
@@ -138,8 +140,9 @@ function App() {
     : (mode === 'clone' || mode === 'design')
       ? ['projects', 'history']
       : [];
-  // Generate-tab prefs now live in `generateSlice` (Phase 2.2). Persisted
-  // knobs survive reloads via the store's `partialize`.
+
+  // Tùy chọn tab Generate hiện nằm trong `generateSlice` (Phase 2.2).
+  // Các núm điều chỉnh đã lưu sẽ tồn tại qua các lần tải lại nhờ `partialize` của store.
   const text              = useAppStore(s => s.text);
   const setText           = useAppStore(s => s.setText);
   const refText         = useAppStore(s => s.refText);
@@ -172,7 +175,7 @@ function App() {
   const vdStates        = useAppStore(s => s.vdStates);
   const setVdStates     = useAppStore(s => s.setVdStates);
 
-  // ═══ EXTRACTED HOOKS ═══
+  // ═══ HOOKS ĐÃ TRÍCH XUẤT ═══
   const {
     profiles, history, dubHistory, studioProjects, exportHistory,
     showOverrides, setShowOverrides,
@@ -204,7 +207,7 @@ function App() {
 
   const handleSaveProfile = () => _handleSaveProfile(refAudio, refText, instruct, language);
 
-  // A/B Voice Comparison State
+  // Trạng thái so sánh giọng nói A/B
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
   const [compareVoiceA, setCompareVoiceA] = useState("");
   const [compareVoiceB, setCompareVoiceB] = useState("");
@@ -214,13 +217,13 @@ function App() {
   const [isComparing, setIsComparing] = useState(false);
   const [compareProgress, setCompareProgress] = useState("");
 
-  // ═══ MIC RECORDING ═══
+  // ═══ GHI ÂM TỪ MIC ═══
   const {
     isRecording, isCleaning, recordingTime,
     startRecording, stopRecording,
   } = useRecording(ingestRefAudio);
 
-  // ═══ DUB STATE ═══
+  // ═══ TRẠNG THÁI LỒNG TIẾNG (DUB) ═══
   const dubJobId           = useAppStore(s => s.dubJobId);
   const setDubJobId        = useAppStore(s => s.setDubJobId);
   const dubStep            = useAppStore(s => s.dubStep);
@@ -270,9 +273,9 @@ function App() {
   const burnSubs = useAppStore(s => s.burnSubs);
   const setDualSubs = useAppStore(s => s.setDualSubs);
 
-  // ── UNDO / REDO + SEGMENT EDITING ──
-  // Must come before useDubWorkflow because the dub generate handler needs
-  // setLastGenFingerprints to keep the incremental-regen plan in sync.
+  // ── HOÀN TÁC / LÀM LẠI + CHỈNH SỬA PHÂN ĐOẠN ──
+  // Phải đặt trước useDubWorkflow vì trình xử lý generate lồng tiếng cần
+  // setLastGenFingerprints để giữ đồng bộ kế hoạch tái tạo lũy tiến.
   const {
     undo, redo, editSegments,
     segmentEditField, segmentDelete, segmentRestoreOriginal,
@@ -312,14 +315,14 @@ function App() {
 
   const handleDubUpload = () => _handleDubUpload(dubVideoFile);
 
-  // ═══ STUDIO PROJECTS ═══
+  // ═══ DỰ ÁN STUDIO (CRUD) ═══
   const activeProjectId = useAppStore(s => s.activeProjectId);
   const activeProjectName = useAppStore(s => s.activeProjectName);
   const setActiveProject = useAppStore(s => s.setActiveProject);
   const sidebarTab    = useAppStore(s => s.sidebarTab);
   const setSidebarTab = useAppStore(s => s.setSidebarTab);
 
-  // Snap sidebar to a valid tab when view changes
+  // Chuyển sidebar sang tab hợp lệ khi view thay đổi
   useEffect(() => {
     if (availableSidebarTabs.length && !availableSidebarTabs.includes(sidebarTab)) {
       setSidebarTab(availableSidebarTabs[0]);
@@ -330,23 +333,23 @@ function App() {
   const isSidebarCollapsed = useAppStore(s => s.isSidebarCollapsed);
   const setIsSidebarCollapsed = useAppStore(s => s.setIsSidebarCollapsed);
 
-  // First-run gate — `/setup/status` reports whether required HF models are
-  // on disk. If not, we render <SetupWizard> in place of the main studio so
-  // the user actually SEES the download instead of a silent 5 GB hang.
+  // Cổng kiểm tra lần đầu chạy — `/setup/status` báo cáo xem các mô hình HF bắt buộc có
+  // trên đĩa hay không. Nếu không, chúng ta render <SetupWizard> thay vì studio chính để
+  // người dùng thực sự THẤY bản tải xuống thay vì một màn hình treo 5 GB im lặng.
   //
-  // Packaged .app note: the frozen backend sidecar takes several seconds to
-  // import torch/torchaudio/whisper/etc. before it can serve /setup/status.
-  // A single fetch on mount lands during that window, fails, and the wizard
-  // would never render. So we retry with backoff until we get a response or
-  // the user gives up. `setupChecked` gates main-UI render so we don't flash
-  // the studio in front of a user who actually needs the wizard.
+  // Lưu ý về ứng dụng đóng gói .app: backend sidecar bị đóng băng mất vài giây để
+  // import torch/torchaudio/whisper/v.v. trước khi nó có thể phục vụ /setup/status.
+  // Một lần fetch duy nhất khi mount sẽ rơi vào cửa sổ đó, thất bại, và wizard
+  // sẽ không bao giờ render. Vì vậy chúng ta thử lại với backoff cho đến khi có phản hồi hoặc
+  // người dùng bỏ cuộc. `setupChecked` chặn việc render UI chính để chúng ta không hiển thị
+  // studio chớp nhoáng trước mặt người dùng thực sự cần wizard.
   const [setupNeeded, setSetupNeeded] = useState(false);
   const [setupChecked, setSetupChecked] = useState(false);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const { setupStatus } = await import('./api/setup');
-      // ~30 attempts × ~1s ≈ 30s ceiling; enough for a cold sidecar on slow disks.
+      // ~30 lần thử × ~1s ≈ trần 30s; đủ cho một sidecar nguội trên các ổ đĩa chậm.
       for (let attempt = 0; attempt < 30 && !cancelled; attempt++) {
         try {
           const s = await setupStatus();
@@ -363,12 +366,12 @@ function App() {
     return () => { cancelled = true; };
   }, []);
 
-  // ── Tauri auto-updater ──
-  // On boot, ask GitHub Releases if a newer build is available. If yes,
-  // prompt the user, download the signed bundle, restart into the new
-  // version. Only runs in packaged .app (not `tauri dev`) — the updater
-  // endpoint 404s until the first signed release is published, and we
-  // don't want that noise in the dev console.
+  // ── Trình cập nhật tự động Tauri ──
+  // Khi khởi động, hỏi GitHub Releases xem có bản build mới hơn không. Nếu có,
+  // nhắc người dùng, tải xuống gói đã ký, khởi động lại vào phiên bản
+  // mới. Chỉ chạy trong ứng dụng đóng gói .app (không phải `tauri dev`) — điểm cuối
+  // cập nhật trả về 404 cho đến khi bản phát hành đã ký đầu tiên được công bố, và chúng ta
+  // không muốn tiếng ồn đó trong dev console.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!('__TAURI_INTERNALS__' in window)) return;
@@ -384,32 +387,32 @@ function App() {
         const update = await check();
         if (cancelled || !update) return;
         const proceed = await ask(
-          `A new version (${update.version}) of OmniVoice Studio is available.\n\nWhat's new:\n${update.body || '— see release notes'}\n\nDownload and install now?`,
-          { title: 'Update available', kind: 'info' },
+          t('toasts.update_available', { version: update.version }) + `\n\nCó gì mới:\n${update.body || '— xem ghi chú phát hành'}\n\nTải xuống và cài đặt ngay?`,
+          { title: t('toasts.update_available_title', 'Có bản cập nhật mới'), kind: 'info' },
         );
         if (!proceed) return;
         await update.downloadAndInstall();
         await relaunch();
       } catch (e) {
         // eslint-disable-next-line no-console
-        console.debug('Updater check failed (non-fatal):', e);
+        console.debug('Kiểm tra cập nhật thất bại (không nghiêm trọng):', e);
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [t]);
 
-  // ── DESKTOP NATIVE INTEGRATION ──
+  // ── TÍCH HỢP NATIVE DESKTOP ──
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // 1. Prevent default right-click to hide web nature
+    // 1. Ngăn chặn click chuột phải mặc định để ẩn bản chất web
     const handleContextMenu = (e) => {
-      // allow on inputs/textareas for copy/paste
+      // cho phép trên input/textarea để copy/paste
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
       e.preventDefault();
     };
     
-    // 2. Prevent keyboard quicks (reload, zoom, print)
+    // 2. Ngăn chặn các phím tắt trình duyệt (tải lại, zoom, in)
     const handleKeyDown = (e) => {
       if (!e.metaKey && !e.ctrlKey) return;
       if (['r', 'p', '=', '-', '+'].includes(e.key.toLowerCase())) {
@@ -417,12 +420,12 @@ function App() {
       }
     };
     
-    // 3. Prevent pinch-to-zoom
+    // 3. Ngăn chặn pinch-to-zoom
     const handleWheel = (e) => {
       if (e.ctrlKey) e.preventDefault();
     };
     
-    // 4. Global Drag and drop for seamless native feeling
+    // 4. Kéo và thả toàn cục để có cảm giác native mượt mà
     const handleDrop = (e) => {
       e.preventDefault();
       const file = e.dataTransfer?.files[0];
@@ -455,13 +458,10 @@ function App() {
     };
   }, []);
 
-
-
-
-  // ── KEYBOARD SHORTCUTS ──
+  // ── PHÍM TẮT BÀN PHÍM ──
   useEffect(() => {
     const handler = (e) => {
-      // ⌘+Enter or Ctrl+Enter → Generate
+      // ⌘+Enter hoặc Ctrl+Enter → Generate (Tạo)
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
         if (mode === 'dub') {
@@ -471,19 +471,19 @@ function App() {
         }
         return;
       }
-      // ⌘+S or Ctrl+S → Save project
+      // ⌘+S hoặc Ctrl+S → Save project (Lưu dự án)
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
         if (mode === 'dub') saveProject();
         return;
       }
-      // ⌘+Z → Undo
+      // ⌘+Z → Undo (Hoàn tác)
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         undo();
         return;
       }
-      // ⌘+Shift+Z → Redo
+      // ⌘+Shift+Z → Redo (Làm lại)
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
         e.preventDefault();
         redo();
@@ -500,23 +500,25 @@ function App() {
       const { save } = await import('@tauri-apps/plugin-dialog');
       const ext = fallbackName.includes('.') ? fallbackName.split('.').pop() : 'wav';
       const destPath = await save({ defaultPath: fallbackName, filters: [{ name: 'Media', extensions: [ext] }] });
-      if (!destPath) return; // User cancelled
+      if (!destPath) return; // Người dùng đã hủy
 
       await exportAction({ source_filename: sourceIdentifier, destination_path: destPath, mode });
-      toast.success(`Exported: ${fallbackName}`);
+      toast.success(t('toasts.exported', { filename: fallbackName }));
       loadExportHistory();
     } catch (err) {
       console.error(err);
-      toast.error(`Export failed: ${err?.message || err}`);
+      toast.error(t('toasts.export_fail', { error: err?.message || err }));
     }
   };
+
   const revealInFolder = async (filePath) => {
     try {
       await exportReveal({ path: filePath });
     } catch (err) {
-      toast.error(`Could not open folder: ${err.message}`);
+      toast.error(t('toasts.folder_open_fail', { error: err.message }));
     }
   };
+
   const parseFilenameFromContentDisposition = (header) => {
     if (!header) return null;
     const utf8 = header.match(/filename\*=(?:UTF-8|utf-8)''([^;]+)/i);
@@ -530,8 +532,8 @@ function App() {
     const modeGuess = ['mp4','mov','mkv','webm'].includes(extGuess)
       ? 'video' : ['wav','mp3','flac'].includes(extGuess) ? 'audio' : 'file';
 
-    // In Tauri, WebKit silently drops blob downloads. Use native save dialog
-    // + server-side copy so the file actually lands on disk at a known path.
+    // Trong Tauri, WebKit âm thầm bỏ qua việc tải xuống blob. Sử dụng native save dialog
+    // + copy phía máy chủ để tệp thực sự được ghi vào đĩa tại một đường dẫn đã biết.
     if (isTauri) {
       try {
         const { save } = await import('@tauri-apps/plugin-dialog');
@@ -539,32 +541,32 @@ function App() {
           defaultPath: fallbackName,
           filters: [{ name: modeGuess === 'video' ? 'Video' : 'Audio', extensions: [extGuess] }],
         });
-        if (!destPath) return; // user cancelled
-        toast.loading(`Saving ${fallbackName}...`, { id: fallbackName });
+        if (!destPath) return; // người dùng đã hủy
+        toast.loading(t('toasts.saving', { filename: fallbackName }), { id: fallbackName });
         const sep = url.includes('?') ? '&' : '?';
         const res = await fetch(`${url}${sep}save_path=${encodeURIComponent(destPath)}`);
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || 'Save failed');
+          throw new Error(err.detail || 'Lưu thất bại');
         }
         const data = await res.json();
-        toast.success(`Saved: ${data.path}`, { id: fallbackName });
+        toast.success(t('toasts.saved', { path: data.path }), { id: fallbackName });
         try {
           await exportRecord({ filename: data.display_name || fallbackName, destination_path: data.path, mode: modeGuess });
           loadExportHistory();
-        } catch (err) { console.warn('exportRecord (Tauri save path) failed:', err); }
+        } catch (err) { console.warn('exportRecord (đường dẫn lưu Tauri) thất bại:', err); }
       } catch (err) {
         console.error(err);
-        toast.error(`Save error: ${err.message}`, { id: fallbackName });
+        toast.error(t('toasts.save_error', { error: err.message }), { id: fallbackName });
       }
       return;
     }
 
-    // Browser path: standard blob download.
+    // Luồng trình duyệt: tải xuống blob tiêu chuẩn.
     try {
-      toast.loading(`Processing ${fallbackName}...`, { id: fallbackName });
+      toast.loading(t('toasts.processing', { filename: fallbackName }), { id: fallbackName });
       const response = await fetch(url);
-      if (!response.ok) throw new Error("Download failed");
+      if (!response.ok) throw new Error("Tải xuống thất bại");
       const serverName = parseFilenameFromContentDisposition(response.headers.get('content-disposition'));
       const finalName = serverName || fallbackName || 'download';
       const blob = await response.blob();
@@ -576,28 +578,30 @@ function App() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(localUrl);
-      toast.success(`Downloaded ${finalName}`, { id: fallbackName });
+      toast.success(t('toasts.downloaded', { filename: finalName }), { id: fallbackName });
       try {
         await exportRecord({ filename: finalName, destination_path: `~/Downloads/${finalName}`, mode: modeGuess });
         loadExportHistory();
-      } catch (err) { console.warn('exportRecord (browser download path) failed:', err); }
+      } catch (err) { console.warn('exportRecord (luồng tải trình duyệt) thất bại:', err); }
     } catch (err) {
       console.error(err);
-      toast.error(`Download error: ${err.message}`, { id: fallbackName });
+      toast.error(t('toasts.download_error', { error: err.message }), { id: fallbackName });
     }
   };
-  // Pre-flight for audio/video exports. If any segments are at preview
-  // quality (num_step=8, from a "Regen changed" click), re-render those at
-  // full quality first so the user's exported file isn't carrying preview
-  // artifacts. No-op when previewSegIds is empty.
+
+  // Chuẩn bị trước khi xuất âm thanh/video. Nếu bất kỳ phân đoạn nào đang ở
+  // chất lượng nghe thử (num_step=8, từ một click "Tạo lại thay đổi"), hãy render lại chúng ở
+  // chất lượng đầy đủ trước để tệp đã xuất của người dùng không mang theo các dị vật nghe thử.
+  // Không thực hiện gì khi previewSegIds trống.
   const finalizeTtsBeforeExport = async () => {
     if (!previewSegIds || previewSegIds.length === 0) return;
-    toast(`Upgrading ${previewSegIds.length} preview-quality segment${previewSegIds.length === 1 ? '' : 's'} to full quality…`, { icon: '✨' });
+    toast(t('toasts.upgrading_quality', { count: previewSegIds.length }), { icon: '✨' });
     await handleDubGenerate({ regenOnly: previewSegIds, preview: false });
   };
+
   const handleDubDownload = async () => {
     await finalizeTtsBeforeExport();
-    // Build selected tracks from all known tracks, matching the checkbox `!== false` logic
+    // Xây dựng các track đã chọn từ tất cả các track đã biết
     const selected = [];
     if (exportTracks['original'] !== false) selected.push('original');
     dubTracks.forEach(t => { if (exportTracks[t] !== false) selected.push(t); });
@@ -605,16 +609,19 @@ function App() {
     const burnParam = burnSubs ? `&burn_subs=1&dual=${dualSubs ? 1 : 0}` : '';
     triggerDownload(`${API}/dub/download/${dubJobId}/dubbed_video.mp4?preserve_bg=${preserveBg}&default_track=${defaultTrack}&include_tracks=${encodeURIComponent(tracksParam)}${burnParam}`, 'dubbed_video.mp4');
   };
+
   const handleDubAudioDownload = async () => {
     await finalizeTtsBeforeExport();
     triggerDownload(`${API}/dub/download-audio/${dubJobId}/dubbed_audio.wav?preserve_bg=${preserveBg}`, 'dubbed_audio.wav');
   };
-  // Generic audio export wrapper — MP3, Clips, Stems all need preview segs
-  // upgraded before mux. Subtitle exports (SRT/VTT) skip this.
+
+  // Trình bao bọc xuất âm thanh chung — MP3, Clips, Stems đều cần các phân đoạn nghe thử
+  // được nâng cấp trước khi mux. Xuất phụ đề (SRT/VTT) bỏ qua bước này.
   const handleAudioExport = async (url, filename) => {
     await finalizeTtsBeforeExport();
     triggerDownload(url, filename);
   };
+
   const resetDub = () => {
     setDubJobId(null); setDubStep('idle'); setDubSegments([]); setDubFilename('');
     setDubDuration(0); setDubError(''); setDubVideoFile(null); setDubTracks([]);
@@ -628,13 +635,13 @@ function App() {
     setActiveProject(null);
   };
 
-  // ═══ STUDIO PROJECT CRUD ═══
+  // ═══ DỰ ÁN STUDIO (CRUD) ═══
   const saveProject = async () => {
     if (dubStep === 'idle') {
-      toast.error("Please click 'Upload & Transcribe' first so the video is processed on the server before saving.");
+      toast.error(t('toasts.upload_first'));
       return;
     }
-    const name = activeProjectName || dubFilename || `Project ${new Date().toLocaleString()}`;
+    const name = activeProjectName || dubFilename || `Dự án ${new Date().toLocaleString()}`;
     const statePayload = {
       name,
       video_path: dubFilename || null,
@@ -649,10 +656,10 @@ function App() {
     try {
       const data = await apiSaveProject(statePayload, activeProjectId);
       setActiveProject(data.id, name);
-      toast.success(activeProjectId ? 'Project saved' : 'Project created');
+      toast.success(activeProjectId ? t('toasts.project_saved') : t('toasts.project_created'));
       loadProjects();
     } catch (err) {
-      toast.error('Save failed: ' + err.message);
+      toast.error(t('toasts.save_fail', { error: err.message }));
     }
   };
 
@@ -675,12 +682,12 @@ function App() {
       setPreserveBg(s.preserveBg !== undefined ? s.preserveBg : true);
       setDefaultTrack(s.defaultTrack !== undefined ? s.defaultTrack : 'original');
       setDubStep(s.dubStep === 'done' ? 'done' : (s.dubSegments?.length ? 'editing' : 'idle'));
-      // Phase 4.5 — rehydrate per-segment fingerprints. The incremental plan
-      // immediately shows "N segments changed" for any segments edited after
-      // the last generate.
+      // Phase 4.5 — khôi phục fingerprint của từng phân đoạn. Kế hoạch lũy tiến
+      // ngay lập tức hiển thị "N phân đoạn đã thay đổi" cho bất kỳ phân đoạn nào được sửa sau
+      // lần tạo cuối cùng.
       setLastGenFingerprints(s.segHashes || {});
       setSpeakerClones(s.speakerClones || {});
-      toast.success(`Opened: ${data.name}`);
+      toast.success(t('toasts.opened', { name: data.name }));
     } catch (err) {
       toast.error(err.message);
     }
@@ -688,14 +695,14 @@ function App() {
 
   const deleteProject = async (projectId, e) => {
     if (e) e.stopPropagation();
-    if (!(await askConfirm('Delete this project? This cannot be undone.'))) return;
+    if (!(await askConfirm(t('sidebar.delete_project_confirm', 'Xóa dự án này? Thao tác này không thể hoàn tác.')))) return;
     try {
       await apiDeleteProject(projectId);
       if (activeProjectId === projectId) {
         setActiveProject(null);
       }
       loadProjects();
-      toast.success('Project deleted');
+      toast.success(t('toasts.project_deleted'));
     } catch (err) { toast.error(err.message); }
   };
 
@@ -713,17 +720,17 @@ function App() {
       setDubLangCode(item.language_code || 'und');
       setDubTracks(Object.keys(job.dubbed_tracks || {}));
       setDubStep(Object.keys(job.dubbed_tracks || {}).length > 0 ? 'done' : 'editing');
-      // Phase 4.5 — seg_hashes are written per successful segment by
-      // dub_generate.py. Reloading a half-generated dub lets the "Regen N
-      // changed" button resume right where the crash happened.
+      // Phase 4.5 — seg_hashes được ghi lại cho từng phân đoạn thành công bởi
+      // dub_generate.py. Tải lại một bản lồng tiếng đang tạo dở dang cho phép nút
+      // "Tạo lại N thay đổi" tiếp tục ngay tại nơi xảy ra lỗi.
       setLastGenFingerprints(job.seg_hashes || {});
-      // Rehydrate the auto-extracted speaker clones so the CAST dropdown's
-      // "🎤 From video" option reappears after a reload. Projects that
-      // predate the speaker-clone feature have an empty map; the Extract
-      // Voices button in the CAST strip handles those.
+      // Khôi phục các hồ sơ clone người nói được trích xuất tự động để tùy chọn
+      // "🎤 Từ video" trong dropdown CAST xuất hiện lại sau khi tải lại. Các dự án
+      // có trước tính năng speaker-clone sẽ có map trống; nút Extract
+      // Voices trong dải CAST sẽ xử lý những trường hợp đó.
       setSpeakerClones(job.speaker_clones || {});
     } catch (e) {
-      console.error("Failed to restore job_data", e);
+      console.error("Không thể khôi phục job_data", e);
     }
   };
 
@@ -733,13 +740,13 @@ function App() {
     if (item.language) setLanguage(item.language);
     if (item.profile_id) setSelectedProfile(item.profile_id);
     
-    // Switch to studio tab
+    // Chuyển sang tab studio
     setSidebarTab('projects');
-    toast.success('Restored previous generation state');
+    toast.success(t('toasts.restored_state'));
   };
 
   const deleteHistory = async (id, type) => {
-    if (!(await askConfirm('Delete this history item?'))) return;
+    if (!(await askConfirm(t('sidebar.delete_history_confirm', 'Xóa mục lịch sử này?')))) return;
     try {
       const endpoint = type === 'dub' ? `${API}/dub/history/${id}` : `${API}/history/${id}`;
       await fetch(endpoint, { method: 'DELETE' });
@@ -748,19 +755,19 @@ function App() {
       } else {
         loadHistory();
       }
-      toast.success('History item deleted');
+      toast.success(t('toasts.history_deleted'));
     } catch (err) {
       toast.error(err.message);
     }
   };
 
 
-  // First-run gate: if /setup/status says models aren't on disk yet, render
-  // the wizard instead of the main studio. Dismisses itself once the user
-  // completes the download (or clicks "Skip" if they want to limp along).
-  // Also blocks render until we've heard back from the backend at least once
-  // — the frozen sidecar's cold-start import is ~5-10 s and without this we
-  // flash the empty studio before the wizard has a chance to mount.
+  // Cổng kiểm tra lần đầu chạy: nếu /setup/status báo các mô hình chưa có trên đĩa,
+  // render wizard thay vì studio chính. Tự đóng khi người dùng
+  // hoàn tất tải xuống (hoặc click "Skip" nếu họ muốn dùng tạm).
+  // Đồng thời chặn render cho đến khi chúng ta nhận được phản hồi từ backend ít nhất một lần
+  // — cold-start của frozen sidecar mất ~5-10 s và không có cái này chúng ta sẽ
+  // hiển thị studio trống trước khi wizard có cơ hội mount.
   if (!setupChecked) {
     return (
       <div style={{ zoom: uiScale }}>
@@ -772,17 +779,17 @@ function App() {
     );
   }
   if (setupNeeded) {
-    // Render outside the `app-container` grid so the wizard spans the full
-    // viewport instead of getting squeezed into whatever grid cell the
-    // studio layout reserves for the main content column.
+    // Render bên ngoài lưới `app-container` để wizard chiếm trọn
+    // viewport thay vì bị ép vào bất kỳ ô lưới nào mà
+    // studio layout dành cho cột nội dung chính.
     return (
       <div
         className="app-wizard-wrap"
         style={{ zoom: uiScale }}
       >
-        {/* Invisible drag strip across the top 28 px of the wizard —
-            matches the macOS traffic-light zone so the window can be
-            dragged / double-click-zoomed from anywhere along the top. */}
+        {/* Dải kéo vô hình trên cùng 28 px của wizard —
+            khớp với vùng traffic-light của macOS để cửa sổ có thể
+            được kéo / double-click-zoom từ bất cứ đâu dọc theo phía trên. */}
         <div
           data-tauri-drag-region
           onDoubleClick={() => {
@@ -804,8 +811,8 @@ function App() {
     );
   }
 
-  // Block the main UI until Rust reports the backend is ready. In dev web
-  // (no Tauri), the hook returns 'ready' immediately so this is a no-op.
+  // Chặn UI chính cho đến khi Rust báo cáo backend đã sẵn sàng. Trong dev web
+  // (không có Tauri), hook trả về 'ready' ngay lập tức nên đây là no-op.
   if (bootstrapStage !== 'ready') {
     return <BootstrapSplash stage={bootstrapStage} message={bootstrapMessage} />;
   }
@@ -827,7 +834,7 @@ function App() {
               file={pendingTrimFile}
               maxSeconds={CLONE_MAX_SECONDS}
               onCancel={() => setPendingTrimFile(null)}
-              onConfirm={(trimmed) => { setPendingTrimFile(null); setRefAudio(trimmed); setSelectedProfile(null); toast.success('Trimmed audio loaded'); }}
+              onConfirm={(trimmed) => { setPendingTrimFile(null); setRefAudio(trimmed); setSelectedProfile(null); toast.success(t('toasts.trimmed_loaded')); }}
             />
           </Suspense>
         </ErrorBoundary>
@@ -840,7 +847,6 @@ function App() {
 
       <FloatingPill />
 
-
       <Header
         mode={mode} setMode={setMode}
         sysStats={sysStats} modelStatus={modelStatus}
@@ -849,8 +855,8 @@ function App() {
         onFlushMemory={async (unloadModel) => {
           try {
             const r = await apiFlushMemory(unloadModel);
-            toast.success(`Flushed — RAM ${r.ram_after}G · VRAM ${r.vram_after}G${r.unloaded_model ? ' · model unloaded' : ''}`);
-          } catch (e) { toast.error('Flush failed: ' + e.message); }
+            toast.success(t('toasts.flushed', { ram: r.ram_after, vram: r.vram_after, unloaded: r.unloaded_model ? ` · ${t('header.model_unloaded', 'đã giải phóng mô hình')}` : '' }));
+          } catch (e) { toast.error('Giải phóng thất bại: ' + e.message); }
         }}
       />
 
@@ -858,7 +864,7 @@ function App() {
 
       <div className="main-content">
 
-        {/* ═══ LAUNCHPAD TAB ═══ */}
+        {/* ═══ TAB CÀI ĐẶT (SETTINGS) ═══ */}
         {mode === 'settings' ? (
           <ErrorBoundary name="settings">
             <Suspense fallback={<LazyFallback />}>
@@ -953,8 +959,8 @@ function App() {
           <ErrorBoundary name="dub">
           <Suspense fallback={<LazyFallback />}>
             <DubTab
-              // Non-serialisable / local state only — all pipeline fields now
-              // flow through the Zustand store.
+              // Chỉ các trạng thái không thể tuần tự hóa / cục bộ — tất cả các trường pipeline hiện
+              // chảy qua Zustand store.
               dubVideoFile={dubVideoFile}
               dubLocalBlobUrl={dubLocalBlobUrl}
               transcribeElapsed={transcribeElapsed}
@@ -966,7 +972,7 @@ function App() {
               selectedSegIds={selectedSegIds}
               setDubVideoFile={setDubVideoFile}
               setDubLocalBlobUrl={setDubLocalBlobUrl}
-              // Handlers — close over App.jsx scope so stay prop-threaded.
+              // Các trình xử lý — đóng gói scope của App.jsx nên vẫn được truyền qua prop.
               handleDubAbort={handleDubAbort} handleDubUpload={handleDubUpload} handleDubIngestUrl={handleDubIngestUrl}
               handleDubRetryTranscribe={handleDubRetryTranscribe}
               handleDubStop={handleDubStop} handleDubGenerate={handleDubGenerate}
@@ -1036,7 +1042,7 @@ function App() {
         )}
       </div>
 
-      {/* ── SIDEBAR ── */}
+      {/* ── SIDEBAR (THANH BÊN) ── */}
       <Suspense fallback={<LazyFallback />}>
         <Sidebar
           availableTabs={availableSidebarTabs}
@@ -1075,7 +1081,7 @@ function App() {
         />
       </Suspense>
 
-      {/* ═══ DIRECTION DIALOG (Phase 4.2) ═══ */}
+      {/* ═══ DIALOG CHỈ ĐẠO (Phase 4.2) ═══ */}
       <DirectionDialog
         open={!!directionSegId}
         seg={directionSegId ? dubSegments.find(s => s.id === directionSegId) : null}
@@ -1083,7 +1089,7 @@ function App() {
         onClose={closeDirection}
       />
 
-      {/* ═══ A/B VOICE COMPARISON MODAL ═══ */}
+      {/* ═══ MODAL SO SÁNH GIỌNG NÓI A/B ═══ */}
       {isCompareModalOpen && (
         <Suspense fallback={<LazyFallback />}>
           <CompareModal
@@ -1104,14 +1110,14 @@ function App() {
         </Suspense>
       )}
 
-      {/* ═══ KEYBOARD CHEATSHEET ( ? ) ═══ */}
+      {/* ═══ BẢNG TRA PHÍM TẮT ( ? ) ═══ */}
       {showCheatsheet && (
         <Suspense fallback={null}>
           <KeyboardCheatsheet open={showCheatsheet} onClose={() => setShowCheatsheet(false)} />
         </Suspense>
       )}
 
-      {/* ═══ VOICE PREVIEW FLOATING CARD ═══ */}
+      {/* ═══ THẺ NỔI XEM TRƯỚC GIỌNG NÓI ═══ */}
       {isVoicePreviewOpen && (
         <Suspense fallback={null}>
           <VoicePreview
@@ -1124,9 +1130,7 @@ function App() {
         </Suspense>
       )}
 
-
-
-      {/* ═══ BOTTOM LOGS PANEL (VSCode-style) ═══ */}
+      {/* ═══ BẢNG NHẬT KÝ PHÍA DƯỚI (kiểu VSCode) ═══ */}
       <Suspense fallback={null}>
         <LogsFooter />
       </Suspense>

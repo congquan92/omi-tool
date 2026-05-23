@@ -1,21 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Globe, Fingerprint, Wand2, Film, FolderOpen, RefreshCw, Settings2, ChevronRight, ChevronDown, Zap, Building2, Library, FileText, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button, Badge } from '../ui';
 import NotificationPanel from './NotificationPanel';
 import { useAppStore } from '../store';
-
-const VIEW_META = {
-  launchpad:  { label: 'Launchpad',       Icon: Globe,       accent: '#f3a5b6', kicker: 'Studio' },
-  clone:      { label: 'Voice Clone',     Icon: Fingerprint, accent: '#d3869b', kicker: 'Studio' },
-  design:     { label: 'Voice Design',    Icon: Wand2,       accent: '#8ec07c', kicker: 'Studio' },
-  dub:        { label: 'Dubbing',         Icon: Film,        accent: '#fe8019', kicker: 'Studio' },
-  projects:   { label: 'OmniDrive',      Icon: FolderOpen,  accent: '#83a598', kicker: 'Library' },
-  gallery:    { label: 'Gallery',         Icon: Library,     accent: '#b8bb26', kicker: 'Library' },
-  transcriptions: { label: 'Transcriptions', Icon: FileText, accent: '#d3869b', kicker: 'Library' },
-  settings:   { label: 'Settings',        Icon: Settings2,   accent: '#fabd2f', kicker: 'Preferences' },
-  enterprise: { label: 'Commercial License', Icon: Building2, accent: '#fe8019', kicker: 'Licensing' },
-};
 
 function WaveBars({ color = '#f3a5b6', active }) {
   const heights = [4, 9, 5, 11, 6, 10, 5, 8];
@@ -26,8 +15,8 @@ function WaveBars({ color = '#f3a5b6', active }) {
           key={i}
           className={active ? 'hq-wave-bar active' : 'hq-wave-bar'}
           style={{
-            // Height + color are per-instance; animation-delay is per-bar.
-            // These three are genuinely dynamic so stay inline.
+            // Chiều cao và màu sắc theo từng instance; animation-delay theo từng thanh.
+            // Ba thuộc tính này thực sự động nên để inline.
             height: h,
             background: color,
             animationDelay: `${i * 0.08}s`,
@@ -42,9 +31,23 @@ export default function Header({
   mode, setMode, sysStats, modelStatus, doubleClickMaximize,
   activeProjectName, onFlushMemory,
 }) {
-  // Default OFF — chrome shouldn't double as a resource monitor. Power users
-  // flip this on via Settings → Performance. Idle/Ready/Loading badge +
-  // Flush button stay visible regardless (action-relevant).
+  const { t } = useTranslation();
+
+  const VIEW_META = {
+    launchpad:  { label: t('menu.launchpad'),       Icon: Globe,       accent: '#f3a5b6', kicker: t('menu.kicker_studio') },
+    clone:      { label: t('menu.clone'),           Icon: Fingerprint, accent: '#d3869b', kicker: t('menu.kicker_studio') },
+    design:     { label: t('menu.design'),          Icon: Wand2,       accent: '#8ec07c', kicker: t('menu.kicker_studio') },
+    dub:        { label: t('menu.dub'),             Icon: Film,        accent: '#fe8019', kicker: t('menu.kicker_studio') },
+    projects:   { label: t('menu.projects'),        Icon: FolderOpen,  accent: '#83a598', kicker: t('menu.kicker_library') },
+    gallery:    { label: t('menu.gallery'),         Icon: Library,     accent: '#b8bb26', kicker: t('menu.kicker_library') },
+    transcriptions: { label: t('menu.transcriptions'), Icon: FileText, accent: '#d3869b', kicker: t('menu.kicker_library') },
+    settings:   { label: t('menu.settings'),        Icon: Settings2,   accent: '#fabd2f', kicker: t('menu.kicker_preferences') },
+    enterprise: { label: t('menu.enterprise'),      Icon: Building2,   accent: '#fe8019', kicker: t('menu.kicker_licensing') },
+  };
+
+  // Mặc định TẮT — chrome không nên đóng vai trò là trình theo dõi tài nguyên.
+  // Người dùng nâng cao có thể bật tính năng này qua Cài đặt → Hiệu năng.
+  // Badge Trạng thái Nghỉ/Sẵn sàng/Đang tải + nút Flush vẫn hiển thị bất kể điều gì (liên quan đến hành động).
   const showLiveStats = useAppStore(s => s.showHeaderLiveStats);
   const [flushing, setFlushing] = useState(false);
   const [flushOpen, setFlushOpen] = useState(false);
@@ -54,30 +57,30 @@ export default function Header({
   const flushBtnRef = useRef(null);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
 
-  // Dynamically compute dropdown position from button rect
+  // Tính toán động vị trí dropdown từ rect của button
   const computePos = useCallback(() => {
     if (!flushBtnRef.current) return;
     const rect = flushBtnRef.current.getBoundingClientRect();
     const dropW = 260;
-    const dropH = 220; // approximate max height
+    const dropH = 220; // chiều cao tối đa ước tính
     const pad = 6;
 
-    // Default: below button, right-aligned
+    // Mặc định: bên dưới button, căn phải
     let top = rect.bottom + pad;
     let left = rect.right - dropW;
 
-    // Flip up if too close to bottom
+    // Lật lên nếu quá gần cạnh dưới
     if (top + dropH > window.innerHeight - 10) {
       top = rect.top - dropH - pad;
     }
-    // Clamp left so it doesn't go off-screen
+    // Giới hạn left để không tràn khỏi màn hình
     if (left < 8) left = 8;
     if (left + dropW > window.innerWidth - 8) left = window.innerWidth - dropW - 8;
 
     setDropdownPos({ top, left });
   }, []);
 
-  // Recompute on open, resize, and scroll
+  // Tính toán lại khi mở, thay đổi kích thước và cuộn
   useEffect(() => {
     if (!flushOpen) return;
     computePos();
@@ -91,7 +94,7 @@ export default function Header({
   const view = VIEW_META[mode] || VIEW_META.launchpad;
   const ViewIcon = view.Icon;
 
-  // Fetch loaded models when dropdown opens
+  // Lấy các mô hình đã tải khi dropdown mở
   useEffect(() => {
     if (!flushOpen) return;
     const fetchModels = async () => {
@@ -107,7 +110,7 @@ export default function Header({
     fetchModels();
   }, [flushOpen]);
 
-  // Click outside to close (must check both the button wrapper AND the portal dropdown)
+  // Click ra ngoài để đóng (phải kiểm tra cả button wrapper VÀ portal dropdown)
   const dropdownRef = useRef(null);
   useEffect(() => {
     if (!flushOpen) return;
@@ -132,7 +135,7 @@ export default function Header({
       setUnloading(null);
     }
   };
-  // Dynamic accent color must stay inline — it's driven by the current view.
+  // Màu sắc accent động phải để inline — nó được điều khiển bởi view hiện tại.
   const dotStyle   = { background: view.accent, boxShadow: `0 0 10px ${view.accent}90` };
   const labelStyle = { color: view.accent };
   return (
@@ -141,7 +144,7 @@ export default function Header({
       data-tauri-drag-region
       onDoubleClick={doubleClickMaximize}
     >
-      {/* Left: view title + breadcrumb */}
+      {/* Trái: tiêu đề view + breadcrumb */}
       <div className="hq-col-left">
         <div className="hq-col-left__spacer" />
         <div className="hq-view-title">
@@ -163,17 +166,17 @@ export default function Header({
           <Button
             variant="ghost"
             size="sm"
-            title="Force Reload UI"
+            title={t('header.reload_ui')}
             onClick={() => window.location.reload()}
             leading={<RefreshCw size={9} />}
             className="hq-reload-btn"
           >
-            Reload
+            {t('header.reload')}
           </Button>
         )}
       </div>
 
-      {/* Center: logo */}
+      {/* Giữa: logo */}
       <div className="hq-col-center">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f3a5b6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="hq-logo-mark">
           <circle cx="12" cy="12" r="10" opacity="0.18" fill="#f3a5b6" />
@@ -187,8 +190,8 @@ export default function Header({
         </span>
       </div>
 
-      {/* Right: wave + sys stats. UI scale (S/M/L) lives in the bottom
-          LogsFooter bar so all app-wide chrome sits together. */}
+      {/* Phải: wave + sys stats. Tỉ lệ UI (S/M/L) nằm trong thanh
+          LogsFooter phía dưới để tất cả các thành phần app-wide chrome ở cùng nhau. */}
       <div className="hq-col-right">
         <NotificationPanel onNavigate={setMode} />
         <WaveBars color={view.accent} active={modelStatus === 'ready' || modelStatus === 'loading'} />
@@ -210,7 +213,7 @@ export default function Header({
                 dot
                 className={`hq-stats__status-badge ${modelStatus === 'loading' ? 'ui-badge--pulse' : ''}`}
               >
-                {modelStatus === 'ready' ? 'Ready' : modelStatus === 'loading' ? 'Loading…' : 'Idle'}
+                {modelStatus === 'ready' ? t('header.status_ready') : modelStatus === 'loading' ? t('common.loading') : t('header.status_idle')}
               </Badge>
             </span>
             {onFlushMemory && (
@@ -219,14 +222,14 @@ export default function Header({
                   ref={flushBtnRef}
                   variant="subtle"
                   size="sm"
-                  title="Memory management"
+                  title={t('header.memory_management')}
                   loading={flushing}
                   leading={!flushing && <Zap size={8} />}
                   trailing={<ChevronDown size={8} />}
                   onClick={() => setFlushOpen(o => !o)}
                   className="hq-flush-btn"
                 >
-                  Flush
+                  {t('header.flush')}
                 </Button>
                 {flushOpen && createPortal(
                   <div
@@ -234,9 +237,9 @@ export default function Header({
                     style={{ top: dropdownPos.top, left: dropdownPos.left }}
                     ref={dropdownRef}
                   >
-                    <div className="hq-flush-dropdown__header">Loaded Models</div>
+                    <div className="hq-flush-dropdown__header">{t('header.loaded_models')}</div>
                     {loadedModels.length === 0 ? (
-                      <div className="hq-flush-dropdown__empty">No models loaded</div>
+                      <div className="hq-flush-dropdown__empty">{t('header.no_models_loaded')}</div>
                     ) : (
                       loadedModels.map(m => (
                         <div key={m.id} className="hq-flush-dropdown__item">
@@ -253,7 +256,7 @@ export default function Header({
                               disabled={unloading === m.id}
                               aria-label={`Unload ${m.name}`}
                             >
-                              {unloading === m.id ? '…' : 'Unload'}
+                              {unloading === m.id ? '…' : t('header.unload')}
                             </button>
                           )}
                         </div>
@@ -268,7 +271,7 @@ export default function Header({
                         try { await onFlushMemory(false); } finally { setFlushing(false); }
                       }}
                     >
-                      <Zap size={10} /> Flush caches
+                      <Zap size={10} /> {t('header.flush_caches')}
                     </button>
                     <button
                       className="hq-flush-dropdown__action hq-flush-dropdown__action--danger"
@@ -278,7 +281,7 @@ export default function Header({
                         try { await onFlushMemory(true); } finally { setFlushing(false); }
                       }}
                     >
-                      <Trash2 size={10} /> Unload all + flush
+                      <Trash2 size={10} /> {t('header.unload_all_flush')}
                     </button>
                   </div>,
                   document.body

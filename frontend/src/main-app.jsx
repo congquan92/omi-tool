@@ -1,15 +1,15 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-// Fonts load before tokens so --font-* can resolve immediately (no FOUT).
-// Inter ships as a single variable file; Source Serif 4 too. Plex Mono has
-// no variable build so we pull the three weights we use (400/500/600).
+// Tải font trước các token để --font-* có thể được giải quyết ngay lập tức (tránh FOUT).
+// Inter được cung cấp dưới dạng một file biến duy nhất; Source Serif 4 cũng vậy.
+// Plex Mono không có bản build biến nên chúng ta lấy ba trọng số thường dùng (400/500/600).
 import '@fontsource-variable/inter';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import '@fontsource/ibm-plex-mono/600.css';
 import '@fontsource-variable/source-serif-4';
-import './i18n';   // ← initialise i18next before any component renders
+import './i18n';   // ← khởi tạo i18next trước khi bất kỳ thành phần nào render
 import './ui';
 import './index.css';
 import App from './App.jsx';
@@ -30,18 +30,18 @@ const queryClient = new QueryClient({
 import { Suspense, lazy } from 'react';
 const CaptureWidget = lazy(() => import('./components/CaptureWidget.jsx'));
 
-// Detect which Tauri window we're rendering in.
-// Tauri 2's WebviewUrl::App(PathBuf) variant doesn't support query strings —
-// declaring `"url": "/?window=widget"` in tauri.conf.json silently failed to
-// create the widget window. So both windows load the same index.html and we
-// differentiate by window label via the Tauri JS API.
+// Xác định cửa sổ Tauri nào đang được render.
+// Biến thể WebviewUrl::App(PathBuf) của Tauri 2 không hỗ trợ query string —
+// việc khai báo `"url": "/?window=widget"` trong tauri.conf.json đã âm thầm thất bại khi
+// tạo cửa sổ widget. Vì vậy cả hai cửa sổ đều tải cùng một index.html và chúng ta
+// phân biệt bằng nhãn cửa sổ (window label) thông qua Tauri JS API.
 async function detectIsWidget() {
   try {
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     return getCurrentWindow().label === 'widget';
   } catch {
-    // Non-Tauri context (browser dev, Docker) — fall back to URL query for
-    // legacy `bun dev:frontend` workflows that may still rely on it.
+    // Ngữ cảnh không phải Tauri (trình duyệt dev, Docker) — quay lại sử dụng URL query cho
+    // các luồng công việc `bun dev:frontend` cũ có thể vẫn dựa vào nó.
     return window.location.search.includes('window=widget');
   }
 }

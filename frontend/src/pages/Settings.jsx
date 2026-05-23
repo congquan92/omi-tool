@@ -14,6 +14,7 @@ import {
   Keyboard,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { openExternal } from '../api/external';
 import { systemLogs, systemLogsTauri, clearSystemLogs, clearTauriLogs } from '../api/system';
 import { useSysinfo, useModelStatus, useSystemInfo } from '../api/hooks';
@@ -28,24 +29,24 @@ import AppearancePanel from '../components/settings/AppearancePanel';
 import EngineCompatibilityMatrix from '../components/EngineCompatibilityMatrix';
 import './Settings.css';
 
-const TABS = [
-  { id: 'models',      label: 'Models',      icon: Cpu,          accent: '#f3a5b6' },
-  { id: 'engines',     label: 'Engines',     icon: Plug,         accent: '#d3869b' },
-  { id: 'capture',     label: 'Capture',     icon: Keyboard,     accent: '#83a598' },
-  { id: 'credentials', label: 'Credentials', icon: KeyRound,     accent: '#fe8019' },
-  { id: 'logs',        label: 'Logs',        icon: FileText,     accent: '#fabd2f' },
-  { id: 'about',       label: 'About',       icon: Info,         accent: '#8ec07c' },
-  { id: 'privacy',     label: 'Privacy',     icon: ShieldCheck,  accent: '#b8bb26' },
+const TABS = (t) => [
+  { id: 'models',      label: t('settings.models'),      icon: Cpu,          accent: '#f3a5b6' },
+  { id: 'engines',     label: t('settings.engines'),     icon: Plug,         accent: '#d3869b' },
+  { id: 'capture',     label: t('settings.capture'),     icon: Keyboard,     accent: '#83a598' },
+  { id: 'credentials', label: t('settings.credentials'), icon: KeyRound,     accent: '#fe8019' },
+  { id: 'logs',        label: t('settings.logs'),        icon: FileText,     accent: '#fabd2f' },
+  { id: 'about',       label: t('settings.about'),       icon: Info,         accent: '#8ec07c' },
+  { id: 'privacy',     label: t('settings.privacy'),     icon: ShieldCheck,  accent: '#b8bb26' },
 ];
 
-const LOG_SOURCES = [
-  { value: 'backend',  label: 'Backend' },
-  { value: 'frontend', label: 'Frontend' },
-  { value: 'tauri',    label: 'Tauri' },
+const LOG_SOURCES = (t) => [
+  { value: 'backend',  label: t('settings.backend') },
+  { value: 'frontend', label: t('settings.frontend') },
+  { value: 'tauri',    label: t('settings.tauri') },
 ];
 
 const MODEL_ROLE_ORDER = ['tts', 'asr', 'diarisation', 'diarization', 'llm'];
-const MODEL_ROLE_LABEL = { all: 'All', tts: 'TTS', asr: 'ASR', diarisation: 'Diarisation', diarization: 'Diarisation', llm: 'LLM', other: 'Other' };
+const MODEL_ROLE_LABEL = { all: 'Tất cả', tts: 'TTS', asr: 'ASR', diarisation: 'Diarisation', diarization: 'Diarisation', llm: 'LLM', other: 'Khác' };
 
 function Row({ label, value, mono }) {
   return (
@@ -66,7 +67,7 @@ function fmtBytes(n) {
   return `${Math.round(n / 1024)} KB`;
 }
 
-/** Deterministic muted HSL color from an org/user name in a repo_id. */
+/** Màu HSL tĩnh từ tên tổ chức/người dùng trong repo_id. */
 function orgColor(repoId) {
   const org = (repoId || '').split('/')[0];
   let h = 0;
@@ -77,11 +78,12 @@ function orgColor(repoId) {
 import { useModels, useRecommendations, useInstallModel, useDeleteModel } from '../api/hooks';
 
 /**
- * Model store — list every known HF model, show install state, let the
- * user install / reinstall / delete individual models. Per-model download
- * progress is pulled from the shared /setup/download-stream SSE.
+ * Model store — liệt kê mọi mô hình HF đã biết, hiển thị trạng thái cài đặt, cho phép
+ * người dùng cài đặt / cài đặt lại / xóa từng mô hình. Tiến trình tải xuống của từng mô hình
+ * được lấy từ SSE /setup/download-stream dùng chung.
  */
 export function ModelStoreTab({ info, modelBadge }) {
+  const { t } = useTranslation();
   const modelsQuery = useModels();
   const recoQuery = useRecommendations();
   const data = modelsQuery.data;
@@ -90,9 +92,9 @@ export function ModelStoreTab({ info, modelBadge }) {
   const installMutation = useInstallModel();
   const deleteMutation = useDeleteModel();
 
-  const [busy, setBusy] = useState(new Set()); // repo_ids currently working
-  // Per-repo active state. Tracks aggregate download across all files of
-  // a running install so the row can show a determinate progress bar.
+  const [busy, setBusy] = useState(new Set()); // repo_ids hiện đang xử lý
+  // Trạng thái hoạt động trên từng repo. Theo dõi tổng lượng tải xuống trên tất cả các tệp của
+  // một cài đặt đang chạy để hàng có thể hiển thị thanh tiến trình xác định.
   // { [repo_id]: { phase, files: { [filename]: { downloaded, total, pct } }, error } }
   const [rowState, setRowState] = useState({});
   const [query, setQuery] = useState('');
@@ -102,10 +104,10 @@ export function ModelStoreTab({ info, modelBadge }) {
   const [columnFilters, setColumnFilters] = useState([]);
   const esRef = React.useRef(null);
   const tableBodyRef = React.useRef(null);
-  // Track download speed per repo: { [repo_id]: { lastBytes, lastTime, speed } }
+  // Theo dõi tốc độ tải xuống trên từng repo: { [repo_id]: { lastBytes, lastTime, speed } }
   const speedRef = React.useRef({});
-  // Tick counter — forces re-render every second while a download is active
-  // so speed/ETA displays update smoothly between SSE events.
+  // Bộ đếm nhịp — buộc render lại mỗi giây trong khi đang tải xuống
+  // để hiển thị tốc độ/ETA cập nhật mượt mà giữa các sự kiện SSE.
   const [, setTick] = useState(0);
   useEffect(() => {
     const hasActive = Object.values(rowState).some(s =>
@@ -115,7 +117,7 @@ export function ModelStoreTab({ info, modelBadge }) {
     return () => clearInterval(iv);
   }, [rowState]);
 
-  // HF token inline — compact input in the toolbar
+  // HF token nội dòng — input nhỏ gọn trong thanh công cụ
   const [hfToken, setHfToken] = useState('');
   const [hfSaved, setHfSaved] = useState(false);
   const [hfSaving, setHfSaving] = useState(false);
@@ -132,20 +134,20 @@ export function ModelStoreTab({ info, modelBadge }) {
         body: JSON.stringify({ key: 'HF_TOKEN', value }),
       });
       if (res.ok) {
-        toast.success('HuggingFace token set — faster downloads enabled');
+        toast.success('Đã đặt HuggingFace token — cho phép tải xuống nhanh hơn');
         setHfSaved(true);
         setHfToken('');
         setHfExpanded(false);
       } else {
         const d = await res.json().catch(() => ({}));
-        toast.error(d.detail || 'Failed to save token');
+        toast.error(d.detail || 'Không thể lưu token');
       }
-    } catch (e) { toast.error(`Save failed: ${e.message}`); }
+    } catch (e) { toast.error(`Lưu thất bại: ${e.message}`); }
     finally { setHfSaving(false); }
   };
   const hfTokenSet = hfSaved || info?.has_hf_token;
 
-  // Open the progress stream once when the tab mounts; close on unmount.
+  // Mở stream tiến trình một lần khi tab mount; đóng khi unmount.
   useEffect(() => {
     const es = new EventSource(setupDownloadStreamUrl());
     esRef.current = es;
@@ -155,13 +157,13 @@ export function ModelStoreTab({ info, modelBadge }) {
         if (!ev?.repo_id) return;
         setRowState(prev => {
           const cur = prev[ev.repo_id] || { phase: 'active', files: {} };
-          // Lifecycle events (install_start/install_done/install_error,
-          // delete_start/delete_done) flip the row's phase without
-          // touching per-file accounting.
+          // Các sự kiện vòng đời (install_start/install_done/install_error,
+          // delete_start/delete_done) chuyển đổi phase của hàng mà không
+          // ảnh hưởng đến việc hạch toán từng tệp.
           if (ev.phase === 'install_start' || ev.phase === 'delete_start') {
             return { ...prev, [ev.repo_id]: { phase: ev.phase, files: {}, error: null } };
           }
-          // Heartbeat from backend while resolving repo metadata
+          // Nhịp tim từ backend trong khi giải quyết metadata repo
           if (ev.phase === 'resolving') {
             return { ...prev, [ev.repo_id]: { ...cur, phase: 'resolving', resolvingStep: ev.step || 0 } };
           }
@@ -177,7 +179,7 @@ export function ModelStoreTab({ info, modelBadge }) {
           if (ev.phase === 'install_error') {
             return { ...prev, [ev.repo_id]: { ...cur, phase: 'install_error', error: ev.error } };
           }
-          // Per-file tqdm events — aggregate across files.
+          // Các sự kiện tqdm trên từng tệp — tổng hợp lại.
           const files = { ...cur.files, [ev.filename]: {
             downloaded: ev.downloaded || 0,
             total: ev.total || 0,
@@ -187,13 +189,13 @@ export function ModelStoreTab({ info, modelBadge }) {
           }};
           return { ...prev, [ev.repo_id]: { ...cur, phase: 'active', files } };
         });
-      } catch { /* keepalive / ignore */ }
+      } catch { /* keepalive / bỏ qua */ }
     };
     return () => es.close();
   }, []);
 
-  // When a lifecycle terminator fires, refresh the list so "installed"
-  // flips server-side info into the row.
+  // Khi một sự kiện kết thúc vòng đời được kích hoạt, làm mới danh sách để "đã cài đặt"
+  // cập nhật thông tin từ phía máy chủ vào hàng.
   useEffect(() => {
     const term = Object.entries(rowState).find(([, s]) =>
       ['install_done', 'delete_done', 'install_error'].includes(s.phase));
@@ -201,10 +203,10 @@ export function ModelStoreTab({ info, modelBadge }) {
     const t = setTimeout(() => {
       modelsQuery.refetch();
       recoQuery.refetch();
-      // Clear stale speed data for this repo.
+      // Xóa dữ liệu tốc độ cũ của repo này.
       delete speedRef.current[term[0]];
-      // Clear the terminal entry so the row reverts to the authoritative
-      // `installed` flag from /models without keeping stale progress.
+      // Xóa mục kết thúc để hàng quay lại sử dụng cờ `installed` có thẩm quyền
+      // từ /models mà không giữ lại tiến trình cũ.
       setRowState(prev => {
         const next = { ...prev };
         delete next[term[0]];
@@ -232,35 +234,35 @@ export function ModelStoreTab({ info, modelBadge }) {
   }, []);
 
   const onInstall = useCallback((repoId) =>
-    withBusy(repoId, () => installMutation.mutateAsync(repoId), 'Install started — progress in the row'),
+    withBusy(repoId, () => installMutation.mutateAsync(repoId), 'Đã bắt đầu cài đặt — xem tiến trình trong hàng'),
     [installMutation, withBusy]);
   const onDelete = useCallback(async (repoId) => {
-    if (!(await askConfirm(`Delete ${repoId}? You can reinstall it later.`, 'Delete model'))) return;
-    return withBusy(repoId, () => deleteMutation.mutateAsync(repoId), `Deleted ${repoId}`);
+    if (!(await askConfirm(`Xóa ${repoId}? Bạn có thể cài đặt lại sau.`, 'Xóa mô hình'))) return;
+    return withBusy(repoId, () => deleteMutation.mutateAsync(repoId), `Đã xóa ${repoId}`);
   }, [deleteMutation, withBusy]);
   const onReinstall = useCallback(async (repoId) => {
-    if (!(await askConfirm(`Reinstall ${repoId}? This will delete the current copy and download again.`, 'Reinstall model'))) return;
+    if (!(await askConfirm(`Cài đặt lại ${repoId}? Thao tác này sẽ xóa bản sao hiện tại và tải xuống lại.`, 'Cài đặt lại mô hình'))) return;
     await withBusy(repoId, async () => {
       await deleteMutation.mutateAsync(repoId);
       await installMutation.mutateAsync(repoId);
-    }, 'Reinstalling');
+    }, 'Đang cài đặt lại');
   }, [deleteMutation, installMutation, withBusy]);
 
   const onInstallRecommended = async () => {
     if (!reco) return;
     const missing = reco.models.filter(m => !m.installed);
     if (missing.length === 0) {
-      toast.success('Recommended models are already installed.');
+      toast.success('Các mô hình được khuyến nghị đã được cài đặt.');
       return;
     }
     setInstallingReco(true);
     try {
-      // Parallel install — backend /models/install spawns each download on
-      // its own asyncio task so ordering doesn't matter.
+      // Cài đặt song song — backend /models/install kích hoạt từng bản tải xuống trên
+      // task asyncio riêng nên thứ tự không quan trọng.
       await Promise.all(missing.map(m => installMutation.mutateAsync(m.repo_id)));
-      toast.success(`Started downloading ${missing.length} model${missing.length > 1 ? 's' : ''}`);
+      toast.success(`Đã bắt đầu tải xuống ${missing.length} mô hình`);
     } catch (e) {
-      toast.error(`Install failed: ${e.message || e}`);
+      toast.error(`Cài đặt thất bại: ${e.message || e}`);
     } finally {
       setInstallingReco(false);
     }
@@ -276,7 +278,7 @@ export function ModelStoreTab({ info, modelBadge }) {
     const ai = MODEL_ROLE_ORDER.indexOf(a), bi = MODEL_ROLE_ORDER.indexOf(b);
     return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
   });
-  // 'all' is a virtual role — shows every model regardless of category.
+  // 'all' là một vai trò ảo — hiển thị mọi mô hình bất kể danh mục.
   const currentRole = activeRole === 'all' ? 'all'
     : activeRole && groups[activeRole] ? activeRole
     : 'all';
@@ -299,7 +301,7 @@ export function ModelStoreTab({ info, modelBadge }) {
       total: a.total + (f.total || 0),
       done: a.done + (f.phase === 'done' ? 1 : 0),
     }), { downloaded: 0, total: 0, done: 0 });
-    // Sum backend-reported rate from active (non-done) files
+    // Tổng hợp tốc độ do backend báo cáo từ các tệp đang hoạt động (chưa hoàn thành)
     const backendRate = fileList
       .filter(([, f]) => f.phase !== 'done' && f.rate > 0)
       .reduce((s, [, f]) => s + f.rate, 0);
@@ -330,7 +332,7 @@ export function ModelStoreTab({ info, modelBadge }) {
     {
       id: 'name',
       accessorFn: m => `${m.label || ''} ${m.repo_id || ''}`,
-      header: 'Model',
+      header: 'Mô hình (Model)',
       size: 260,
       meta: { className: 'models-row__name' },
       cell: ({ row }) => {
@@ -347,7 +349,7 @@ export function ModelStoreTab({ info, modelBadge }) {
                 {m.repo_id.split('/')[0].slice(0, 2).toUpperCase()}
               </span>
               {m.label}
-              {m.required && <span className="models-row__tag">required</span>}
+              {m.required && <span className="models-row__tag">bắt buộc</span>}
             </span>
             <span className="models-row__repo">
               <code>{m.repo_id}</code>
@@ -362,19 +364,19 @@ export function ModelStoreTab({ info, modelBadge }) {
                 />
                 <span className="models-row__progresstext">
                   {(() => {
-                    if (rt.isDeleting) return 'Removing cached revisions…';
+                    if (rt.isDeleting) return 'Đang xóa các bản sửa đổi đã lưu…';
                     if (!rt.hasFiles) {
                       if (rt.phase === 'resolving') {
                         const dots = '.'.repeat((rt.rs?.resolvingStep || 0) % 4);
-                        return `Resolving repo metadata${dots}`;
+                        return `Đang giải quyết metadata repo${dots}`;
                       }
                       if (rt.phase === 'install_retry') {
-                        return `Retry attempt ${rt.rs?.retryAttempt || '?'} — ${rt.rs?.error || 'reconnecting'}`;
+                        return `Lần thử lại ${rt.rs?.retryAttempt || '?'} — ${rt.rs?.error || 'đang kết nối lại'}`;
                       }
-                      return 'Connecting to HuggingFace…';
+                      return 'Đang kết nối tới HuggingFace…';
                     }
 
-                    // We have file events — compute speed
+                    // Có sự kiện tệp — tính toán tốc độ
                     const sp = speedRef.current[m.repo_id];
                     const now = Date.now();
                     if (sp && rt.totals.downloaded > 0) {
@@ -389,21 +391,21 @@ export function ModelStoreTab({ info, modelBadge }) {
                     }
                     const speed = rt.backendRate > 0 ? rt.backendRate : (sp?.speed || 0);
 
-                    // If total is unknown and nothing downloaded yet → still resolving
+                    // Nếu không biết tổng số và chưa tải gì → vẫn đang giải quyết
                     if (rt.totals.total === 0 && rt.totals.downloaded === 0) {
                       const activeFile = rt.activeFilename?.split('/').pop();
                       return activeFile
-                        ? `Resolving ${rt.fileList.length} file${rt.fileList.length > 1 ? 's' : ''}… · ${activeFile}`
-                        : `Resolving ${rt.fileList.length} file${rt.fileList.length > 1 ? 's' : ''}…`;
+                        ? `Đang giải quyết ${rt.fileList.length} tệp… · ${activeFile}`
+                        : `Đang giải quyết ${rt.fileList.length} tệp…`;
                     }
 
-                    // Build the info line
+                    // Xây dựng dòng thông tin
                     const remaining = rt.totals.total - rt.totals.downloaded;
                     const etaSec = speed > 0 && rt.totals.total > 0 ? remaining / speed : 0;
                     const etaStr = etaSec > 0
-                      ? etaSec < 60 ? `~${Math.ceil(etaSec)}s`
-                      : etaSec < 3600 ? `~${Math.ceil(etaSec / 60)}m`
-                      : `~${(etaSec / 3600).toFixed(1)}h`
+                      ? etaSec < 60 ? `~${Math.ceil(etaSec)} giây`
+                      : etaSec < 3600 ? `~${Math.ceil(etaSec / 60)} phút`
+                      : `~${(etaSec / 3600).toFixed(1)} giờ`
                       : '';
                     const dlStr = fmtBytes(rt.totals.downloaded) || '0 B';
                     const totalStr = rt.totals.total > 0 ? fmtBytes(rt.totals.total) : '…';
@@ -413,12 +415,12 @@ export function ModelStoreTab({ info, modelBadge }) {
                     const parts = [
                       `${dlStr} / ${totalStr}`,
                       pctStr,
-                      speedStr || (rt.totals.downloaded > 0 ? 'measuring…' : ''),
+                      speedStr || (rt.totals.downloaded > 0 ? 'đang đo…' : ''),
                       etaStr,
                     ].filter(Boolean);
 
                     const extra = [];
-                    if (rt.fileList.length > 1) extra.push(`${rt.totals.done}/${rt.fileList.length} files`);
+                    if (rt.fileList.length > 1) extra.push(`${rt.totals.done}/${rt.fileList.length} tệp`);
                     if (rt.activeFilename) extra.push(rt.activeFilename.split('/').pop());
 
                     return extra.length
@@ -429,7 +431,7 @@ export function ModelStoreTab({ info, modelBadge }) {
               </div>
             )}
             {rt.phase === 'install_error' && rt.rs?.error && (
-              <span className="models-row__error">Install failed: {rt.rs.error}</span>
+              <span className="models-row__error">Cài đặt thất bại: {rt.rs.error}</span>
             )}
           </>
         );
@@ -438,21 +440,21 @@ export function ModelStoreTab({ info, modelBadge }) {
     {
       id: 'role',
       accessorFn: m => (m.role || 'other').toLowerCase(),
-      header: 'Role',
+      header: 'Vai trò',
       size: 58,
       filterFn: (row, id, value) => !value || row.getValue(id) === value,
-      cell: ({ row }) => <span className="models-row__role">{MODEL_ROLE_LABEL[row.getValue('role')] || row.original.role || 'Other'}</span>,
+      cell: ({ row }) => <span className="models-row__role">{MODEL_ROLE_LABEL[row.getValue('role')] || row.original.role || 'Khác'}</span>,
     },
     {
       id: 'size',
       accessorFn: m => m.installed ? (m.size_on_disk_bytes || 0) : (m.size_gb || 0) * 1024 ** 3,
-      header: 'Size',
+      header: 'Kích thước',
       size: 68,
       meta: { align: 'right', className: 'models-row__size' },
       cell: ({ row }) => {
         const m = row.original;
         const rt = getRowRuntime(m);
-        // During active download, show live downloaded / total
+        // Trong khi tải xuống tích cực, hiển thị số byte đã tải / tổng số
         if (rt.showBar && rt.hasFiles && rt.totals.total > 0) {
           return <span className="models-row__size-live">{fmtBytes(rt.totals.downloaded)}<span className="models-row__size-sep">/</span>{fmtBytes(rt.totals.total)}</span>;
         }
@@ -462,23 +464,23 @@ export function ModelStoreTab({ info, modelBadge }) {
     {
       id: 'status',
       accessorFn: m => m.installed ? 2 : (m.supported === false ? 0 : 1),
-      header: 'Status',
+      header: 'Trạng thái',
       size: 96,
       meta: { align: 'center', className: 'models-row__status' },
       cell: ({ row }) => {
         const m = row.original;
         const rt = getRowRuntime(m);
         return rt.isInstalling
-          ? <Badge tone="warn" size="xs"><Download size={10} /> {rt.aggPct != null ? `${Math.round(rt.aggPct)}%` : 'downloading'}</Badge>
+          ? <Badge tone="warn" size="xs"><Download size={10} /> {rt.aggPct != null ? `${Math.round(rt.aggPct)}%` : t('settings.downloading')}</Badge>
           : rt.isDeleting
-            ? <Badge tone="warn" size="xs"><Trash2 size={10} /> deleting</Badge>
+            ? <Badge tone="warn" size="xs"><Trash2 size={10} /> đang xóa</Badge>
             : rt.rowBusy
-              ? <Badge tone="warn" size="xs"><RefreshCw size={10} className="spinner" /> working</Badge>
+              ? <Badge tone="warn" size="xs"><RefreshCw size={10} className="spinner" /> đang xử lý</Badge>
               : m.installed
-                ? <Badge tone="success" size="xs">installed</Badge>
+                ? <Badge tone="success" size="xs">{t('settings.installed')}</Badge>
                 : rt.unsupported
                   ? <Badge tone="neutral" size="xs">{(m.platforms || []).join(', ')}</Badge>
-                  : <Badge tone="neutral" size="xs">not installed</Badge>;
+                  : <Badge tone="neutral" size="xs">{t('settings.not_installed')}</Badge>;
       },
     },
     {
@@ -495,8 +497,8 @@ export function ModelStoreTab({ info, modelBadge }) {
             <Button
               variant="icon" iconSize="sm"
               onClick={() => openExternal(`https://huggingface.co/${m.repo_id}`)}
-              title="View on HuggingFace"
-              aria-label="View on HuggingFace"
+              title={t('settings.view_hf')}
+              aria-label={t('settings.view_hf')}
             >
               <ExternalLink size={11} />
             </Button>
@@ -506,7 +508,7 @@ export function ModelStoreTab({ info, modelBadge }) {
                 onClick={() => onInstall(m.repo_id)}
                 leading={<Download size={11} />}
               >
-                Install
+                {t('settings.install')}
               </Button>
             )}
             {m.installed && !rt.rowBusy && !rt.isDeleting && (
@@ -514,16 +516,16 @@ export function ModelStoreTab({ info, modelBadge }) {
                 <Button
                   variant="icon" iconSize="sm"
                   onClick={() => onReinstall(m.repo_id)}
-                  title="Reinstall"
-                  aria-label="Reinstall"
+                  title={t('settings.reinstall')}
+                  aria-label={t('settings.reinstall')}
                 >
                   <RefreshCw size={11} />
                 </Button>
                 <Button
                   variant="icon" iconSize="sm"
                   onClick={() => onDelete(m.repo_id)}
-                  title="Delete"
-                  aria-label="Delete"
+                  title={t('settings.delete')}
+                  aria-label={t('settings.delete')}
                 >
                   <Trash2 size={11} />
                 </Button>
@@ -533,7 +535,7 @@ export function ModelStoreTab({ info, modelBadge }) {
         );
       },
     },
-  ], [getRowRuntime, onDelete, onInstall, onReinstall]);
+  ], [getRowRuntime, onDelete, onInstall, onReinstall, t]);
 
   const table = useReactTable({
     data: allModels,
@@ -571,8 +573,8 @@ export function ModelStoreTab({ info, modelBadge }) {
   if (loading && !data) {
     return (
       <section className="settings-section">
-        <h2><Cpu size={16} color="#f3a5b6" /> Models</h2>
-        <div className="settings-muted">Loading…</div>
+        <h2><Cpu size={16} color="#f3a5b6" /> {t('settings.models')}</h2>
+        <div className="settings-muted">{t('common.loading')}</div>
       </section>
     );
   }
@@ -594,7 +596,7 @@ export function ModelStoreTab({ info, modelBadge }) {
             <button
               className="models-toolbar__hf-btn"
               onClick={() => setHfExpanded(true)}
-              title="Set HuggingFace token for faster downloads"
+              title="Đặt HuggingFace token để tải xuống nhanh hơn"
             >
               <KeyRound size={11} /> HF Token
             </button>
@@ -611,15 +613,15 @@ export function ModelStoreTab({ info, modelBadge }) {
                 autoFocus
               />
               <Button size="sm" variant="subtle" onClick={saveHfToken} disabled={hfSaving || !hfToken.trim()} loading={hfSaving}>
-                Save
+                {t('common.save')}
               </Button>
               <a
                 href="#"
                 className="models-toolbar__hf-link"
                 onClick={e => { e.preventDefault(); openExternal('https://huggingface.co/settings/tokens'); }}
-                title="Open huggingface.co/settings/tokens"
+                title="Mở huggingface.co/settings/tokens"
               >
-                Get token →
+                Lấy token →
               </a>
             </div>
           )}
@@ -627,7 +629,7 @@ export function ModelStoreTab({ info, modelBadge }) {
             <span className="models-toolbar__hf-ok"><KeyRound size={10} /> ✓</span>
           )}
           <Button variant="subtle" size="sm" onClick={reload} loading={loading} leading={<RefreshCw size={11} />}>
-            Refresh
+            {t('settings.refresh')}
           </Button>
         </div>
       </div>
@@ -635,14 +637,14 @@ export function ModelStoreTab({ info, modelBadge }) {
       {reco && reco.all_installed && (
         <div className="reco-banner reco-banner--ok">
           <CheckCircle size={12} color="#8ec07c" />
-          <span className="flex-1">Recommended bundle installed for <strong>{reco.device.label}</strong></span>
+          <span className="flex-1">Gói mô hình khuyến nghị đã cài đặt cho <strong>{reco.device.label}</strong></span>
           <span className="reco-banner__gb">{reco.total_gb} GB</span>
         </div>
       )}
       {reco && !reco.all_installed && (
         <div className="reco-banner reco-banner--pending">
           <div className="reco-banner__top">
-            <span className="reco-banner__title">Recommended for {reco.device.label}</span>
+            <span className="reco-banner__title">Khuyến nghị cho {reco.device.label}</span>
             <div className="reco-banner__btns">
               {(() => {
                 const requiredMissing = reco.models.filter(m => m.required && !m.installed);
@@ -656,19 +658,19 @@ export function ModelStoreTab({ info, modelBadge }) {
                       setInstallingReco(true);
                       try {
                         await Promise.all(requiredMissing.map(m => installMutation.mutateAsync(m.repo_id)));
-                        toast.success(`Started downloading ${requiredMissing.length} required model${requiredMissing.length > 1 ? 's' : ''}`);
-                      } catch (e) { toast.error(`Install failed: ${e.message || e}`); }
+                        toast.success(`Đã bắt đầu tải xuống ${requiredMissing.length} mô hình bắt buộc`);
+                      } catch (e) { toast.error(`Cài đặt thất bại: ${e.message || e}`); }
                       finally { setInstallingReco(false); }
                     }}
                     disabled={installingReco}
                     leading={installingReco ? <RefreshCw size={12} className="spinner" /> : null}
                   >
-                    {installingReco ? 'Starting…' : `Required ~${requiredGb.toFixed(1)} GB`}
+                    {installingReco ? 'Đang bắt đầu…' : `Bắt buộc ~${requiredGb.toFixed(1)} GB`}
                   </Button>
                 );
               })()}
               <Button variant="subtle" size="sm" onClick={onInstallRecommended} disabled={installingReco}>
-                {`All ~${reco.download_gb_remaining} GB`}
+                {`Tất cả ~${reco.download_gb_remaining} GB`}
               </Button>
             </div>
           </div>
@@ -693,7 +695,7 @@ export function ModelStoreTab({ info, modelBadge }) {
           items={[
             {
               value: 'all',
-              label: `All ${allInstalled}/${allModels.length}`,
+              label: `${t('common.all', 'Tất cả')} ${allInstalled}/${allModels.length}`,
             },
             ...roles.map(r => {
               const installed = groups[r].filter(m => m.installed).length;
@@ -707,10 +709,10 @@ export function ModelStoreTab({ info, modelBadge }) {
         <input
           type="search"
           className="models-search"
-          placeholder="Search models…"
+          placeholder={t('settings.search_models')}
           value={query}
           onChange={e => setQuery(e.target.value)}
-          aria-label="Search models"
+          aria-label={t('settings.search_models')}
         />
       </div>
 
@@ -733,7 +735,7 @@ export function ModelStoreTab({ info, modelBadge }) {
                     style={{ width: header.column.columnDef.size, flex: header.column.id === 'name' ? '1 1 auto' : '0 0 auto' }}
                     onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                     disabled={!canSort}
-                    title={canSort ? `Sort by ${String(header.column.columnDef.header || '')}` : undefined}
+                    title={canSort ? `Sắp xếp theo ${String(header.column.columnDef.header || '')}` : undefined}
                   >
                     {flexRender(header.column.columnDef.header, header.getContext())}
                     {header.column.getIsSorted() === 'asc' && <span className="models-table__sortmark">↑</span>}
@@ -778,7 +780,7 @@ export function ModelStoreTab({ info, modelBadge }) {
               );
             })}
             {tableRows.length === 0 && (
-              <div className="models-table__empty">No models match your filters.</div>
+              <div className="models-table__empty">Không có mô hình nào khớp với bộ lọc của bạn.</div>
             )}
           </div>
         </div>
@@ -789,19 +791,20 @@ export function ModelStoreTab({ info, modelBadge }) {
 
 
 export function EnginesTab() {
+  const { t } = useTranslation();
   const reviewMode = useAppStore(s => s.reviewMode);
   const setReviewMode = useAppStore(s => s.setReviewMode);
 
-  // Plan 02-04 / ENGINE-06 — engine selection is wired through the
-  // matrix component's optional onSelect callback so the matrix doubles
-  // as a picker. Keeps a single source of truth for the engine list +
-  // its install / GPU / isolation state.
+  // Plan 02-04 / ENGINE-06 — việc chọn engine được kết nối thông qua
+  // callback onSelect tùy chọn của component matrix, nên matrix cũng đóng vai trò
+  // là một bộ chọn (picker). Giữ một nguồn sự thật duy nhất cho danh sách engine +
+  // trạng thái cài đặt / GPU / cách ly của nó.
   const onSelect = useCallback(async (family, backendId) => {
     try {
       const r = await selectEngine(family, backendId);
       toast.success(`${family.toUpperCase()} → ${r.active}`);
     } catch (e) {
-      toast.error(e.message || 'Failed to switch engine');
+      toast.error(e.message || 'Không thể chuyển đổi engine');
     }
   }, []);
 
@@ -814,13 +817,13 @@ export function EnginesTab() {
             value={reviewMode}
             onChange={setReviewMode}
             items={[
-              { value: 'on',  label: 'Review' },
-              { value: 'off', label: 'Rapid-fire' },
+              { value: 'on',  label: t('settings.review', 'Review') },
+              { value: 'off', label: t('settings.rapid_fire', 'Rapid-fire') },
             ]}
           />
           <span className="models-toolbar__sep">·</span>
           <span>
-            {reviewMode === 'on' ? 'Stage banners on' : 'Stage banners off'}
+            {reviewMode === 'on' ? 'Bật biểu ngữ giai đoạn' : 'Tắt biểu ngữ giai đoạn'}
           </span>
         </div>
       </div>
@@ -833,11 +836,11 @@ export function EnginesTab() {
 
 const isTauri = () => _isTauri;
 
-// Tauri v2's webview disables native window.confirm/alert — they return
-// false silently, making Delete/Reinstall buttons appear dead. Route through
-// the dialog plugin when running in Tauri, fall back to browser confirm
-// elsewhere (vite dev, tests).
-async function askConfirm(message, title = 'Confirm') {
+// Tauri v2's webview vô hiệu hóa window.confirm/alert gốc — chúng trả về
+// false một cách âm thầm, làm cho các nút Xóa/Cài đặt lại trông như bị hỏng. Định tuyến qua
+// plugin dialog khi chạy trong Tauri, quay lại trình duyệt confirm
+// ở những nơi khác (vite dev, tests).
+async function askConfirm(message, title = 'Xác nhận') {
   if (isTauri()) {
     const { ask } = await import('@tauri-apps/plugin-dialog');
     return ask(message, { title, kind: 'warning' });
@@ -846,6 +849,7 @@ async function askConfirm(message, title = 'Confirm') {
 }
 
 export default function Settings() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('models');
   const [logSource, setLogSource] = useState('backend');
   const [logs, setLogs] = useState([]);
@@ -855,7 +859,7 @@ export default function Settings() {
   const [tauriVersion, setTauriVersion] = useState(null);
   const [updateState, setUpdateState] = useState('idle'); // idle|checking|downloading|uptodate|error
 
-  // TanStack Query — shared cache with App.jsx, no duplicate requests
+  // TanStack Query — cache dùng chung với App.jsx, không yêu cầu trùng lặp
   const { data: hw } = useSysinfo();
   const { data: status } = useModelStatus();
   const { data: info } = useSystemInfo();
@@ -871,7 +875,7 @@ export default function Settings() {
     })();
   }, []);
 
-  // sysinfo polling is now handled by useSysinfo() hook above
+  // sysinfo polling hiện được xử lý bởi hook useSysinfo() ở trên
 
   const copyDiagnostics = useCallback(async () => {
     const nav = typeof navigator !== 'undefined' ? navigator : {};
@@ -882,39 +886,39 @@ export default function Settings() {
     const lines = [
       '### OmniVoice Studio diagnostics',
       '',
-      `- **App version:** ${appVersion || '—'}`,
+      `- **Phiên bản App:** ${appVersion || '—'}`,
       `- **Tauri runtime:** ${tauriVersion || (isTauri() ? '—' : 'web preview')}`,
-      `- **Platform:** ${info?.platform || '—'}`,
-      `- **Architecture:** ${nav.userAgentData?.platform || nav.platform || '—'}`,
-      `- **Locale / timezone:** ${lang} / ${tz}`,
+      `- **Nền tảng:** ${info?.platform || '—'}`,
+      `- **Kiến trúc:** ${nav.userAgentData?.platform || nav.platform || '—'}`,
+      `- **Locale / múi giờ:** ${lang} / ${tz}`,
       `- **Python:** ${info?.python || '—'}`,
-      `- **Compute device:** ${info?.device || '—'}`,
-      `- **GPU active:** ${hw?.gpu_active ? 'yes' : 'no'}`,
-      `- **RAM:** ${fmtGB(hw?.ram)} used / ${fmtGB(hw?.total_ram)} total`,
-      `- **VRAM (allocated):** ${fmtGB(hw?.vram)}`,
-      `- **Backend status:** ${status?.status || 'unknown'}`,
-      `- **Active model:** ${status?.repo_id || info?.model_checkpoint || '—'}`,
-      `- **ASR model:** ${info?.asr_model || '—'}`,
-      `- **Translator:** ${info?.translate_provider || '—'}`,
-      `- **HF token set:** ${info?.has_hf_token ? 'yes' : 'no'}`,
-      `- **Data directory:** ${info?.data_dir || '—'}`,
-      `- **Outputs directory:** ${info?.outputs_dir || '—'}`,
-      `- **Crash log:** ${info?.crash_log_path || '—'}`,
+      `- **Thiết bị tính toán:** ${info?.device || '—'}`,
+      `- **GPU hoạt động:** ${hw?.gpu_active ? 'có' : 'không'}`,
+      `- **RAM:** ${fmtGB(hw?.ram)} đã dùng / ${fmtGB(hw?.total_ram)} tổng cộng`,
+      `- **VRAM (đã cấp phát):** ${fmtGB(hw?.vram)}`,
+      `- **Trạng thái Backend:** ${status?.status || 'không rõ'}`,
+      `- **Mô hình hoạt động:** ${status?.repo_id || info?.model_checkpoint || '—'}`,
+      `- **Mô hình ASR:** ${info?.asr_model || '—'}`,
+      `- **Trình dịch:** ${info?.translate_provider || '—'}`,
+      `- **HF token set:** ${info?.has_hf_token ? 'có' : 'không'}`,
+      `- **Thư mục dữ liệu:** ${info?.data_dir || '—'}`,
+      `- **Thư mục đầu ra:** ${info?.outputs_dir || '—'}`,
+      `- **Nhật ký lỗi:** ${info?.crash_log_path || '—'}`,
       `- **Update endpoint:** https://github.com/debpalash/OmniVoice-Studio/releases/latest/download/latest.json`,
       `- **User agent:** ${ua}`,
     ];
     const text = lines.join('\n');
     try {
       await navigator.clipboard.writeText(text);
-      toast.success('Diagnostics copied — paste into your issue report.');
+      toast.success('Đã sao chép chẩn đoán — hãy dán vào báo cáo lỗi của bạn.');
     } catch (e) {
-      toast.error('Copy failed: ' + (e?.message || e));
+      toast.error('Sao chép thất bại: ' + (e?.message || e));
     }
   }, [appVersion, tauriVersion, info, status, hw]);
 
   const checkForUpdates = useCallback(async () => {
     if (!isTauri()) {
-      toast('Updater only runs in the desktop app.', { icon: 'ℹ️' });
+      toast('Trình cập nhật chỉ chạy trong ứng dụng máy tính.', { icon: 'ℹ️' });
       return;
     }
     setUpdateState('checking');
@@ -927,26 +931,26 @@ export default function Settings() {
       const update = await check();
       if (!update) {
         setUpdateState('uptodate');
-        toast.success("You're on the latest version.");
+        toast.success("Bạn đang sử dụng phiên bản mới nhất.");
         return;
       }
       const proceed = await ask(
-        `Version ${update.version} is available.\n\n${update.body || 'See release notes on GitHub.'}\n\nDownload and install now?`,
-        { title: 'Update available', kind: 'info' },
+        `Phiên bản ${update.version} đã có sẵn.\n\n${update.body || 'Xem ghi chú phát hành trên GitHub.'}\n\nTải xuống và cài đặt ngay?`,
+        { title: 'Có bản cập nhật mới', kind: 'info' },
       );
       if (!proceed) { setUpdateState('idle'); return; }
       setUpdateState('downloading');
-      const t = toast.loading(`Downloading ${update.version}…`);
+      const t = toast.loading(`Đang tải xuống ${update.version}…`);
       await update.downloadAndInstall();
-      toast.success('Installed — relaunching.', { id: t });
+      toast.success('Đã cài đặt — đang khởi động lại.', { id: t });
       await relaunch();
     } catch (e) {
       setUpdateState('error');
-      toast.error('Update check failed: ' + (e?.message || e));
+      toast.error('Kiểm tra cập nhật thất bại: ' + (e?.message || e));
     }
   }, []);
 
-  // refreshInfo polling replaced by TanStack Query (useSystemInfo + useModelStatus)
+  // refreshInfo polling được thay thế bởi TanStack Query (useSystemInfo + useModelStatus)
   const refreshInfo = useCallback(() => {}, []);
 
   const refreshLogs = useCallback(async () => {
@@ -967,10 +971,10 @@ export default function Settings() {
           return `[${ts}] [${e.level}] ${e.msg}\n`;
         });
         setLogs(lines);
-        setLogMeta({ path: 'in-memory (last 500)', exists: true });
+        setLogMeta({ path: 'trong bộ nhớ (500 cái cuối)', exists: true });
       }
     } catch (e) {
-      toast.error('Failed to load logs: ' + e.message);
+      toast.error('Không thể tải nhật ký: ' + e.message);
     } finally {
       setLoadingLogs(false);
     }
@@ -982,46 +986,46 @@ export default function Settings() {
 
   const onClearLogs = async () => {
     if (logSource === 'frontend') {
-      if (!(await askConfirm('Clear the in-memory frontend log buffer?', 'Clear logs'))) return;
+      if (!(await askConfirm('Xóa bộ đệm nhật ký frontend trong bộ nhớ?', 'Xóa nhật ký'))) return;
       clearFrontendLogs();
-      toast.success('Frontend logs cleared');
+      toast.success('Đã xóa nhật ký frontend');
       setLogs([]);
       return;
     }
     if (logSource === 'tauri') {
-      if (!(await askConfirm('Truncate the Tauri-side log files? The OS will continue to write new entries.', 'Clear Tauri logs'))) return;
+      if (!(await askConfirm('Cắt bớt các tệp nhật ký phía Tauri? Hệ điều hành sẽ tiếp tục ghi các mục mới.', 'Xóa nhật ký Tauri'))) return;
       try {
         const r = await clearTauriLogs();
         if (!r?.cleared?.length) {
-          toast('Nothing to clear — no Tauri log file on disk yet.', { icon: 'ℹ️' });
+          toast('Không có gì để xóa — chưa có tệp nhật ký Tauri trên đĩa.', { icon: 'ℹ️' });
         } else {
-          toast.success(`Cleared ${r.cleared.length} Tauri log file(s)`);
+          toast.success(`Đã xóa ${r.cleared.length} tệp nhật ký Tauri`);
           setLogs([]);
         }
       } catch (e) {
-        toast.error('Failed to clear Tauri logs: ' + e.message);
+        toast.error('Không thể xóa nhật ký Tauri: ' + e.message);
       }
       return;
     }
-    if (!(await askConfirm('Clear the backend runtime + crash logs? This cannot be undone.', 'Clear logs'))) return;
+    if (!(await askConfirm('Xóa nhật ký backend + nhật ký lỗi? Thao tác này không thể hoàn tác.', 'Xóa nhật ký'))) return;
     try {
       await clearSystemLogs();
-      toast.success('Backend logs cleared');
+      toast.success('Đã xóa nhật ký backend');
       setLogs([]);
     } catch (e) {
-      toast.error('Failed to clear logs');
+      toast.error('Không thể xóa nhật ký');
     }
   };
 
   const modelBadge =
-    status?.status === 'ready'   ? <Badge tone="success"><CheckCircle size={11} /> Ready</Badge>
-  : status?.status === 'loading' ? <Badge tone="warn"><RefreshCw size={11} className="spinner" /> Loading…</Badge>
-                                 : <Badge tone="warn">Idle</Badge>;
+    status?.status === 'ready'   ? <Badge tone="success"><CheckCircle size={11} /> {t('settings.ready')}</Badge>
+  : status?.status === 'loading' ? <Badge tone="warn"><RefreshCw size={11} className="spinner" /> {t('settings.loading')}</Badge>
+                                 : <Badge tone="warn">{t('settings.idle')}</Badge>;
 
   return (
     <div className="settings-page">
       <Tabs
-        items={TABS}
+        items={TABS(t)}
         value={activeTab}
         onChange={setActiveTab}
         className="settings-tabs-ui"
@@ -1039,7 +1043,7 @@ export default function Settings() {
         <section className="settings-section">
           <h2 className="settings-section__head-row">
             <span className="settings-section__head-left">
-              <FileText size={16} color="#fabd2f" /> Logs
+              <FileText size={16} color="#fabd2f" /> {t('settings.logs')}
             </span>
             <span className="settings-section__head-actions">
               <Button
@@ -1049,7 +1053,7 @@ export default function Settings() {
                 loading={loadingLogs}
                 leading={!loadingLogs && <RefreshCw size={11} />}
               >
-                Refresh
+                {t('settings.refresh')}
               </Button>
               <Button
                 variant="danger"
@@ -1057,13 +1061,13 @@ export default function Settings() {
                 onClick={onClearLogs}
                 leading={<Trash2 size={11} />}
               >
-                Clear
+                {t('common.delete')}
               </Button>
             </span>
           </h2>
 
           <Segmented
-            items={LOG_SOURCES}
+            items={LOG_SOURCES(t)}
             value={logSource}
             onChange={setLogSource}
           />
@@ -1072,7 +1076,7 @@ export default function Settings() {
             <span>{logMeta.path || '—'}</span>
             {logSource === 'tauri' && !logMeta.exists && (
               <Badge tone="warn">
-                <AlertCircle size={11} /> No Tauri log on disk yet — launch via the desktop build to produce one
+                <AlertCircle size={11} /> Chưa có nhật ký Tauri trên đĩa — hãy chạy qua bản build desktop để tạo
               </Badge>
             )}
           </div>
@@ -1080,10 +1084,10 @@ export default function Settings() {
             {logs.length === 0
               ? <span className="settings-log__empty">
                   {logSource === 'frontend'
-                    ? 'No frontend console entries captured yet. Interact with the app — every console.* will appear here.'
+                    ? 'Chưa thu thập được mục console frontend nào. Hãy tương tác với ứng dụng — mọi console.* sẽ xuất hiện ở đây.'
                     : logSource === 'tauri'
-                      ? 'No Tauri log available. Runs in the desktop shell only.'
-                      : "Runtime log is empty. Activity will appear here as the backend logs it."}
+                      ? 'Không có nhật ký Tauri. Chỉ chạy trong shell desktop.'
+                      : "Nhật ký runtime trống. Hoạt động sẽ xuất hiện ở đây khi backend ghi nhật ký."}
                 </span>
               : logs.join('')}
           </div>
@@ -1092,28 +1096,28 @@ export default function Settings() {
 
       {activeTab === 'about' && (
         <section className="settings-section">
-          <h2><Info size={16} color="#8ec07c" /> About</h2>
-          <Row label="App"             value="OmniVoice Studio" />
-          <Row label="Version"         value={appVersion || '—'} mono />
+          <h2><Info size={16} color="#8ec07c" /> {t('settings.about')}</h2>
+          <Row label="Ứng dụng"         value="OmniVoice Studio" />
+          <Row label={t('settings.version')} value={appVersion || '—'} mono />
           <Row label="Tauri runtime"   value={tauriVersion || (isTauri() ? '—' : 'web preview')} mono />
-          <Row label="Platform"        value={info?.platform || '—'} />
-          <Row label="Architecture"    value={typeof navigator !== 'undefined' ? (navigator.userAgentData?.platform || navigator.platform || '—') : '—'} mono />
-          <Row label="Python"          value={info?.python || '—'} mono />
-          <Row label="Compute device"  value={info?.device || '—'} mono />
-          <Row label="GPU active"      value={hw?.gpu_active
-            ? <Badge tone="success"><CheckCircle size={11} /> yes</Badge>
-            : <Badge tone="neutral">no</Badge>} />
-          <Row label="RAM"             value={hw ? `${hw.ram?.toFixed(2)} / ${hw.total_ram?.toFixed(2)} GB` : '—'} mono />
-          <Row label="VRAM"            value={hw ? `${hw.vram?.toFixed(2)} GB` : '—'} mono />
-          <Row label="Backend"         value={<Badge tone={status?.status === 'ready' ? 'success' : status?.status === 'loading' ? 'warn' : 'neutral'}>{status?.status || 'unknown'}</Badge>} />
-          <Row label="Active model"    value={status?.repo_id || info?.model_checkpoint || '—'} mono />
-          <Row label="ASR model"       value={info?.asr_model || '—'} mono />
-          <Row label="Translator"      value={info?.translate_provider || '—'} />
-          <Row label="HF token set"    value={info?.has_hf_token ? 'yes' : 'no'} />
-          <Row label="Data directory"  value={info?.data_dir || '—'} mono />
-          <Row label="Outputs"         value={info?.outputs_dir || '—'} mono />
-          <Row label="Crash log"       value={info?.crash_log_path || '—'} mono />
-          <Row label="Update endpoint" value="releases/latest/download/latest.json" mono />
+          <Row label={t('settings.platform')} value={info?.platform || '—'} />
+          <Row label={t('settings.architecture')} value={typeof navigator !== 'undefined' ? (navigator.userAgentData?.platform || navigator.platform || '—') : '—'} mono />
+          <Row label={t('settings.python')} value={info?.python || '—'} mono />
+          <Row label={t('settings.device')} value={info?.device || '—'} mono />
+          <Row label={t('settings.gpu_active')} value={hw?.gpu_active
+            ? <Badge tone="success"><CheckCircle size={11} /> {t('settings.yes')}</Badge>
+            : <Badge tone="neutral">{t('settings.no')}</Badge>} />
+          <Row label={t('settings.ram')} value={hw ? `${hw.ram?.toFixed(2)} / ${hw.total_ram?.toFixed(2)} GB` : '—'} mono />
+          <Row label={t('settings.vram')} value={hw ? `${hw.vram?.toFixed(2)} GB` : '—'} mono />
+          <Row label="Backend"         value={<Badge tone={status?.status === 'ready' ? 'success' : status?.status === 'loading' ? 'warn' : 'neutral'}>{status?.status || 'không rõ'}</Badge>} />
+          <Row label={t('settings.active_model')} value={status?.repo_id || info?.model_checkpoint || '—'} mono />
+          <Row label={t('settings.asr_model')} value={info?.asr_model || '—'} mono />
+          <Row label={t('settings.translator')} value={info?.translate_provider || '—'} />
+          <Row label={t('settings.hf_token_set')} value={info?.has_hf_token ? t('settings.yes') : t('settings.no')} />
+          <Row label={t('settings.data_dir')} value={info?.data_dir || '—'} mono />
+          <Row label={t('settings.outputs')} value={info?.outputs_dir || '—'} mono />
+          <Row label={t('settings.crash_log')} value={info?.crash_log_path || '—'} mono />
+          <Row label={t('settings.update_endpoint')} value="releases/latest/download/latest.json" mono />
           <div className="settings-link-row">
             <Button
               variant="primary"
@@ -1123,7 +1127,7 @@ export default function Settings() {
               loading={updateState === 'checking' || updateState === 'downloading'}
               disabled={!isTauri()}
             >
-              {updateState === 'downloading' ? 'Downloading…' : 'Check for updates'}
+              {updateState === 'downloading' ? t('settings.downloading') : t('settings.check_updates')}
             </Button>
             <Button
               variant="subtle"
@@ -1131,7 +1135,7 @@ export default function Settings() {
               leading={<Copy size={12} />}
               onClick={copyDiagnostics}
             >
-              Copy diagnostics
+              {t('settings.copy_diagnostics')}
             </Button>
             <Button
               variant="subtle"
@@ -1139,7 +1143,7 @@ export default function Settings() {
               leading={<ExternalLink size={12} />}
               onClick={() => openExternal('https://github.com/k2-fsa/OmniVoice')}
             >
-              OmniVoice on GitHub
+              OmniVoice trên GitHub
             </Button>
             <Button
               variant="subtle"
@@ -1155,7 +1159,7 @@ export default function Settings() {
               leading={<Building2 size={12} />}
               onClick={() => { useAppStore.getState().setMode?.('enterprise'); }}
             >
-              Commercial License
+              {t('menu.enterprise')}
             </Button>
           </div>
         </section>
@@ -1163,26 +1167,26 @@ export default function Settings() {
 
       {activeTab === 'privacy' && (
         <section className="settings-section">
-          <h2><ShieldCheck size={16} color="#b8bb26" /> Privacy</h2>
+          <h2><ShieldCheck size={16} color="#b8bb26" /> {t('settings.privacy')}</h2>
           <p className="settings-prose">
-            Everything runs on <strong>this machine</strong>. Your audio, video, and transcripts
-            never leave your computer unless you explicitly use an online translator (Google, DeepL, etc.) or
-            push to HuggingFace.
+            Mọi thứ đều chạy trên <strong>máy tính này</strong>. Âm thanh, video và bản ghi âm của bạn
+            không bao giờ rời khỏi máy tính trừ khi bạn sử dụng một trình dịch trực tuyến một cách rõ ràng (Google, DeepL, v.v.) hoặc
+            đẩy lên HuggingFace.
           </p>
-          <Row label="Uploads stored at"   value={info?.data_dir ? `${info.data_dir}/` : '—'} mono />
-          <Row label="Outputs stored at"   value={info?.outputs_dir || '—'} mono />
-          <Row label="Generation history"  value={<Badge tone="neutral">Local SQLite</Badge>} />
+          <Row label="Tải lên được lưu tại"   value={info?.data_dir ? `${info.data_dir}/` : '—'} mono />
+          <Row label="Đầu ra được lưu tại"   value={info?.outputs_dir || '—'} mono />
+          <Row label="Lịch sử tạo"  value={<Badge tone="neutral">SQLite nội bộ</Badge>} />
           <Row
-            label="Network calls"
+            label="Các cuộc gọi mạng"
             value={
               info?.translate_provider && ['google', 'deepl', 'mymemory', 'microsoft', 'openai'].includes(info.translate_provider)
-                ? <Badge tone="warn"><AlertCircle size={11} /> Translator is online: {info.translate_provider}</Badge>
-                : <Badge tone="success"><CheckCircle size={11} /> Offline translator</Badge>
+                ? <Badge tone="warn"><AlertCircle size={11} /> Trình dịch trực tuyến: {info.translate_provider}</Badge>
+                : <Badge tone="success"><CheckCircle size={11} /> Trình dịch ngoại tuyến</Badge>
             }
           />
           <Row
-            label="Model telemetry"
-            value={<Badge tone="success"><CheckCircle size={11} /> None — no tracking</Badge>}
+            label="Phép đo mô hình"
+            value={<Badge tone="success"><CheckCircle size={11} /> Không — không theo dõi</Badge>}
           />
         </section>
       )}
@@ -1190,59 +1194,17 @@ export default function Settings() {
   );
 }
 
-// ── Credentials Tab ───────────────────────────────────────────────────────
-
-const CREDENTIAL_FIELDS = [
-  {
-    key: 'HF_TOKEN',
-    label: 'HuggingFace Token',
-    placeholder: 'hf_xxxxxxxxxxxx',
-    help: 'Required for speaker diarization and faster model downloads. Get yours at huggingface.co/settings/tokens.',
-    link: 'https://huggingface.co/settings/tokens',
-  },
-  {
-    key: 'TRANSLATE_API_KEY',
-    label: 'Translation API Key',
-    placeholder: 'API key',
-    help: 'Optional — for DeepL, OpenAI, or paid translation providers. Not needed for Google Translate (free tier).',
-    link: null,
-  },
-];
-
-// Convert a KeyboardEvent into a tauri-plugin-global-shortcut accelerator
-// string, e.g. "CmdOrCtrl+Shift+Space". Returns null when only modifiers
-// are held (the user hasn't picked a "real" key yet).
-function keyEventToAccelerator(e) {
-  const isMacLike = typeof navigator !== 'undefined'
-    && /Mac|iPad|iPhone|iPod/.test(navigator.platform || '');
-  const mods = [];
-  if (e.metaKey) mods.push(isMacLike ? 'Cmd' : 'Super');
-  if (e.ctrlKey) mods.push('Ctrl');
-  if (e.altKey) mods.push('Alt');
-  if (e.shiftKey) mods.push('Shift');
-
-  // e.code is the physical key — already in the shape tauri expects for
-  // Letter/Digit/Function keys ("KeyA", "Digit1", "F5"). Strip the prefix
-  // so we get "A" / "1" / "F5" which matches the accelerator grammar.
-  let key = e.code;
-  if (!key) return null;
-  if (key.startsWith('Key')) key = key.slice(3);
-  else if (key.startsWith('Digit')) key = key.slice(5);
-  // Skip pure modifier keys — we want the user to pick a real trigger.
-  if (/^(Meta|Control|Alt|Shift|OS)(Left|Right)?$/.test(key)) return null;
-
-  if (mods.length === 0) return null;
-  return [...mods, key].join('+');
-}
+// ── Tab Hotkey ────────────────────────────────────────────────────────────
 
 function HotkeyTab() {
+  const { t } = useTranslation();
   const [current, setCurrent] = useState('');
   const [recording, setRecording] = useState(false);
   const [pending, setPending] = useState('');
   const [saving, setSaving] = useState(false);
   const tauri = isTauri();
 
-  // Load the saved shortcut on mount.
+  // Tải phím tắt đã lưu khi mount.
   useEffect(() => {
     if (!tauri) return;
     (async () => {
@@ -1251,13 +1213,13 @@ function HotkeyTab() {
         const v = await invoke('get_dictation_shortcut');
         setCurrent(v || '');
       } catch (e) {
-        toast.error(`Could not load shortcut: ${e?.message || e}`);
+        toast.error(`Không thể tải phím tắt: ${e?.message || e}`);
       }
     })();
   }, [tauri]);
 
-  // While recording, swallow keystrokes globally and convert the next real
-  // press into an accelerator string. Escape cancels.
+  // Trong khi ghi âm, chặn các phím nhấn trên toàn cầu và chuyển lần nhấn thực sự
+  // tiếp theo thành một chuỗi accelerator. Escape để hủy.
   useEffect(() => {
     if (!recording) return;
     const onKeyDown = (e) => {
@@ -1286,11 +1248,11 @@ function HotkeyTab() {
       const saved = await invoke('set_dictation_shortcut', { accelerator: pending });
       setCurrent(saved);
       setPending('');
-      toast.success(`Dictation shortcut set to ${saved}`);
+      toast.success(`Đã đặt phím tắt đọc văn bản thành ${saved}`);
     } catch (e) {
-      // Common cause: the OS or another app already owns the combo. Surface
-      // the raw error so the user can pick something else.
-      toast.error(`Couldn't register: ${e?.message || e}`);
+      // Nguyên nhân phổ biến: Hệ điều hành hoặc ứng dụng khác đã sở hữu tổ hợp phím này.
+      // Hiển thị lỗi thô để người dùng có thể chọn phím khác.
+      toast.error(`Không thể đăng ký: ${e?.message || e}`);
     } finally {
       setSaving(false);
     }
@@ -1305,9 +1267,9 @@ function HotkeyTab() {
       });
       setCurrent(saved);
       setPending('');
-      toast.success('Reset to default');
+      toast.success('Đã đặt lại về mặc định');
     } catch (e) {
-      toast.error(`Reset failed: ${e?.message || e}`);
+      toast.error(`Đặt lại thất bại: ${e?.message || e}`);
     } finally {
       setSaving(false);
     }
@@ -1315,25 +1277,24 @@ function HotkeyTab() {
 
   return (
     <section className="settings-section">
-      <h2><Keyboard size={16} color="#83a598" /> Capture & Dictation</h2>
+      <h2><Keyboard size={16} color="#83a598" /> Capture & Đọc văn bản</h2>
 
       {!tauri && (
         <p className="settings-prose">
-          Global hotkeys only work in the desktop app. The web UI uses an
-          in-page <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> shortcut
-          while the window has focus.
+          Phím nóng toàn cầu chỉ hoạt động trong ứng dụng máy tính. Giao diện web sử dụng phím tắt
+          trong trang <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> khi cửa sổ được tập trung.
         </p>
       )}
 
       <div className="settings-row">
-        <span className="label">Active shortcut</span>
+        <span className="label">Phím tắt đang hoạt động</span>
         <span className="value settings-row__mono">{current || '—'}</span>
       </div>
 
       <div className="settings-row">
-        <span className="label">{recording ? 'Press a key combo…' : 'New shortcut'}</span>
+        <span className="label">{recording ? 'Nhấn một tổ hợp phím…' : 'Phím tắt mới'}</span>
         <span className="value settings-row__mono">
-          {recording ? '⌨︎ listening (Esc to cancel)' : (pending || '—')}
+          {recording ? '⌨︎ đang nghe (Esc để hủy)' : (pending || '—')}
         </span>
       </div>
 
@@ -1345,7 +1306,7 @@ function HotkeyTab() {
           disabled={!tauri || saving}
           leading={<Keyboard size={12} />}
         >
-          {recording ? 'Recording…' : 'Record shortcut'}
+          {recording ? 'Đang ghi âm…' : 'Ghi âm phím tắt'}
         </Button>
         <Button
           size="sm"
@@ -1353,7 +1314,7 @@ function HotkeyTab() {
           disabled={!tauri || !pending || pending === current}
           loading={saving}
         >
-          Save
+          {t('common.save')}
         </Button>
         <Button
           size="sm"
@@ -1361,21 +1322,41 @@ function HotkeyTab() {
           onClick={resetDefault}
           disabled={!tauri || saving}
         >
-          Reset to default
+          {t('common.reset')} về mặc định
         </Button>
       </div>
 
       <p className="settings-prose" style={{ marginTop: 12 }}>
-        The hotkey works system-wide while OmniVoice is running — it focuses
-        the window and starts dictation. Avoid combos already claimed by the
-        OS (on macOS, <code>⌘+Space</code> is Spotlight and <code>⌘+⇧+Space</code>
-        cycles input sources). If registration fails, pick a different combo.
+        Phím nóng hoạt động trên toàn hệ thống trong khi OmniVoice đang chạy — nó tập trung vào
+        cửa sổ và bắt đầu đọc văn bản. Tránh các tổ hợp phím đã được Hệ điều hành xác nhận
+        (trên macOS, <code>⌘+Space</code> là Spotlight và <code>⌘+⇧+Space</code>
+        chuyển đổi nguồn đầu vào). Nếu đăng ký thất bại, hãy chọn một tổ hợp phím khác.
       </p>
     </section>
   );
 }
 
+// ── Tab Thông tin xác thực ───────────────────────────────────────────────────────
+
+const CREDENTIAL_FIELDS = (t) => [
+  {
+    key: 'HF_TOKEN',
+    label: 'HuggingFace Token',
+    placeholder: 'hf_xxxxxxxxxxxx',
+    help: 'Bắt buộc để phân tách người nói và tải xuống mô hình nhanh hơn. Lấy tại huggingface.co/settings/tokens.',
+    link: 'https://huggingface.co/settings/tokens',
+  },
+  {
+    key: 'TRANSLATE_API_KEY',
+    label: 'Translation API Key',
+    placeholder: 'API key',
+    help: 'Tùy chọn — dành cho DeepL, OpenAI hoặc các trình dịch trả phí khác. Không cần thiết cho Google Translate (gói miễn phí).',
+    link: null,
+  },
+];
+
 function CredentialsTab({ info }) {
+  const { t } = useTranslation();
   const [values, setValues] = useState({});
   const [saving, setSaving] = useState(null);
   const [saved, setSaved] = useState({});
@@ -1392,15 +1373,15 @@ function CredentialsTab({ info }) {
         body: JSON.stringify({ key, value }),
       });
       if (res.ok) {
-        toast.success(`${key} saved for this session`);
+        toast.success(`${key} đã được lưu cho phiên này`);
         setSaved(prev => ({ ...prev, [key]: true }));
         setValues(prev => ({ ...prev, [key]: '' }));
       } else {
         const d = await res.json().catch(() => ({}));
-        toast.error(d.detail || 'Failed to save');
+        toast.error(d.detail || 'Không thể lưu');
       }
     } catch (e) {
-      toast.error(`Save failed: ${e.message}`);
+      toast.error(`Lưu thất bại: ${e.message}`);
     } finally {
       setSaving(null);
     }
@@ -1408,33 +1389,33 @@ function CredentialsTab({ info }) {
 
   return (
     <section className="settings-section">
-      <h2><KeyRound size={16} color="#fe8019" /> Credentials</h2>
+      <h2><KeyRound size={16} color="#fe8019" /> {t('settings.credentials')}</h2>
 
-      {/* Wave 2 AUTH-03 panel — 3-source cascade with Active badge,
-          encrypted-at-rest App-source storage, and live whoami status. */}
+      {/* Wave 2 AUTH-03 panel — Thác 3 nguồn với badge Hoạt động,
+          Lưu trữ nguồn App được mã hóa khi nghỉ và trạng thái whoami trực tiếp. */}
       <ApiKeysPanel />
 
-      {/* Wave 2 INST-12 panel — Windows torch.compile OOM workaround
-          (#65). Toggle is rendered disabled on macOS/Linux with an
-          explainer; backend ignores the flag on non-Windows. */}
+      {/* Wave 2 INST-12 panel — Cách khắc phục Windows torch.compile OOM
+          (#65). Nút bật/tắt bị vô hiệu hóa trên macOS/Linux kèm theo
+          giải thích; backend bỏ qua cờ này trên các hệ điều hành không phải Windows. */}
       <PerformancePanel />
 
-      {/* UI scale + color theme — moved out of the LogsFooter chrome so
-          the footer can focus on logs. Rarely-used prefs belong here. */}
+      {/* Tỉ lệ giao diện + chủ đề màu sắc — được di chuyển ra khỏi LogsFooter chrome để
+          footer có thể tập trung vào nhật ký. Các tùy chỉnh hiếm khi dùng thuộc về đây. */}
       <AppearancePanel />
 
       <p className="settings-prose">
-        Other API keys and tokens are set <strong>for this session only</strong>.
-        For persistence across restarts, set them as environment variables in
-        your shell profile.
+        Các API key và token khác được đặt <strong>chỉ cho phiên này</strong>.
+        Để duy trì qua các lần khởi động lại, hãy đặt chúng làm biến môi trường trong
+        shell profile của bạn.
       </p>
-      {CREDENTIAL_FIELDS.filter(f => f.key !== 'HF_TOKEN').map(field => (
+      {CREDENTIAL_FIELDS(t).filter(f => f.key !== 'HF_TOKEN').map(field => (
         <div key={field.key} className="settings-credential">
           <div className="settings-credential__header">
             <label className="settings-credential__label">{field.label}</label>
             {field.key === 'HF_TOKEN' && (
               <Badge tone={info?.has_hf_token || saved.HF_TOKEN ? 'success' : 'warn'} size="xs">
-                {info?.has_hf_token || saved.HF_TOKEN ? '✓ Set' : '✗ Not set'}
+                {info?.has_hf_token || saved.HF_TOKEN ? `✓ Đã đặt (${t('settings.yes')})` : `✗ Chưa đặt (${t('settings.no')})`}
               </Badge>
             )}
           </div>
@@ -1454,17 +1435,43 @@ function CredentialsTab({ info }) {
               onClick={() => save(field.key)}
               disabled={!(values[field.key] || '').trim()}
             >
-              Save
+              {t('common.save')}
             </Button>
           </div>
           <p className="settings-credential__help">
             {field.help}
             {field.link && (
-              <> <a href="#" onClick={e => { e.preventDefault(); openExternal(field.link); }}>Get token →</a></>
+              <> <a href="#" onClick={e => { e.preventDefault(); openExternal(field.link); }}>Lấy token →</a></>
             )}
           </p>
         </div>
       ))}
     </section>
   );
+}
+
+// Convert a KeyboardEvent into a tauri-plugin-global-shortcut accelerator
+// string, e.g. "CmdOrCtrl+Shift+Space". Returns null when only modifiers
+// are held (the user hasn't picked a "real" key yet).
+function keyEventToAccelerator(e) {
+  const isMacLike = typeof navigator !== 'undefined'
+    && /Mac|iPad|iPhone|iPod/.test(navigator.platform || '');
+  const mods = [];
+  if (e.metaKey) mods.push(isMacLike ? 'Cmd' : 'Super');
+  if (e.ctrlKey) mods.push('Ctrl');
+  if (e.altKey) mods.push('Alt');
+  if (e.shiftKey) mods.push('Shift');
+
+  // e.code is the physical key — already in the shape tauri expects for
+  // Letter/Digit/Function keys ("KeyA", "Digit1", "F5"). Strip the prefix
+  // so we get "A" / "1" / "F5" which matches the accelerator grammar.
+  let key = e.code;
+  if (!key) return null;
+  if (key.startsWith('Key')) key = key.slice(3);
+  else if (key.startsWith('Digit')) key = key.slice(5);
+  // Skip pure modifier keys — we want the user to pick a real trigger.
+  if (/^(Meta|Control|Alt|Shift|OS)(Left|Right)?$/.test(key)) return null;
+
+  if (mods.length === 0) return null;
+  return [...mods, key].join('+');
 }
